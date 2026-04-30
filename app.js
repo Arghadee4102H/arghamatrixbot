@@ -77,6 +77,7 @@ async function init() {
     initRouter();
     renderHome();
     initAnalysis();
+    fetchBinanceSymbols();
     startMarketTicker();
     initTopup();
     initSupport();
@@ -284,6 +285,31 @@ const symbolDatabase = [
   { symbol: "TSLA", display: "Tesla Inc.", category: "stocks", exchange: "NASDAQ", tvSymbol: "NASDAQ:TSLA" },
   { symbol: "SPX", display: "S&P 500", category: "indices", exchange: "SP", tvSymbol: "SP:SPX" }
 ];
+
+async function fetchBinanceSymbols() {
+    try {
+        const res = await fetch("https://api.binance.com/api/v3/exchangeInfo");
+        const data = await res.json();
+        const usdtPairs = data.symbols.filter(s => s.quoteAsset === 'USDT' && s.status === 'TRADING');
+        
+        const existingMap = new Map();
+        symbolDatabase.forEach(s => existingMap.set(s.symbol, true));
+        
+        usdtPairs.forEach(s => {
+            if (!existingMap.has(s.symbol)) {
+                symbolDatabase.push({
+                    symbol: s.symbol,
+                    display: s.baseAsset + "/" + s.quoteAsset,
+                    category: "crypto",
+                    exchange: "Binance",
+                    tvSymbol: "BINANCE:" + s.symbol
+                });
+            }
+        });
+    } catch(e) {
+        console.error("Failed to fetch Binance symbols", e);
+    }
+}
 
 function initAnalysis() {
     renderQuickPills('crypto');
@@ -527,11 +553,28 @@ async function fetchLiveStats() {
             chgEl.innerText = (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%";
             chgEl.className = pct >= 0 ? "text-green font-bold" : "text-red font-bold";
         } else {
-            // For others, mock or use basic fetch
-            document.getElementById('live-price').innerText = "Loading...";
-            document.getElementById('live-change').innerText = "--";
+            // Use TwelveData quote API for Forex/Metals/Stocks
+            const symbolToFetch = (currentCategory === 'forex' || currentCategory === 'metals') 
+                                    ? currentSymbol.display.split(' ')[0] 
+                                    : currentSymbol.symbol;
+            
+            const res = await fetch(`https://api.twelvedata.com/quote?symbol=${symbolToFetch}&apikey=${TWELVEDATA_API_KEY}`);
+            const data = await res.json();
+            
+            if (data && data.close) {
+                document.getElementById('live-price').innerText = "$" + parseFloat(data.close).toFixed(4);
+                const pct = parseFloat(data.percent_change);
+                const chgEl = document.getElementById('live-change');
+                chgEl.innerText = (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%";
+                chgEl.className = pct >= 0 ? "text-green font-bold" : "text-red font-bold";
+            } else {
+                document.getElementById('live-price').innerText = "Loading...";
+                document.getElementById('live-change').innerText = "--";
+            }
         }
-    } catch(e){}
+    } catch(e){
+        console.error("fetchLiveStats error", e);
+    }
 }
 
 // 8. Analysis Engine — Mocked calculations for MVP (Pure JS implementation placeholder for limits)
@@ -724,7 +767,7 @@ function showPaymentModal(itemData, type) {
     document.getElementById('pay-plan-price').innerText = "$" + itemData.price.toFixed(2) + " USDT";
     document.getElementById('pay-order-id').innerText = orderId;
     
-    const qrData = `binancepay://pay?amount=${itemData.price}&currency=USDT&orderId=${orderId}&merchantId=123456789`;
+    const qrData = `binancepay://pay?amount=${itemData.price}&currency=USDT&orderId=${orderId}&merchantId=1076748303`;
     
     document.getElementById('qr-container').innerHTML = "";
     new QRCode(document.getElementById("qr-container"), {
