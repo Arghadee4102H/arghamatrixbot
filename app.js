@@ -172,6 +172,13 @@ function navigateTo(sectionId) {
     else tg.BackButton.show();
 
     if (sectionId === 'history') initHistory();
+    if (sectionId === 'analysis') {
+        setTimeout(() => {
+            if (currentChartSource === 'tv' && document.getElementById('tv_chart_container').innerHTML === "") {
+                loadChart();
+            }
+        }, 50);
+    }
     
     document.getElementById('main-content').scrollTop = 0;
 }
@@ -444,7 +451,8 @@ function mapTimeframeToTV(tf) {
 function loadTVWidget() {
     document.getElementById('tv_chart_container').innerHTML = "";
     new window.TradingView.widget({
-        "autosize": true,
+        "width": "100%",
+        "height": "100%",
         "symbol": currentSymbol.tvSymbol,
         "interval": mapTimeframeToTV(currentTimeframe),
         "timezone": "Etc/UTC",
@@ -908,20 +916,26 @@ function initSupport() {
         };
 
         try {
+            // Send to Telegram group
+            const botToken = "8253538797:AAHIFJJOMzh2PWIlwR3TujV79S-PBTYogcg";
+            const chatId = "-1002527868754";
+            const text = `🚨 *New Support Ticket*\n\n*Name:* ${data.name}\n*User:* ${data.username}\n*ID:* ${data.telegram_id}\n*Subject:* ${data.subject}\n\n*Description:*\n${data.description}`;
+            
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chat_id: chatId, text: text, parse_mode: "Markdown" })
+            });
+
+            // Send to Formspree
             await fetch("https://formspree.io/f/mpqklnpe", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
             });
+            
             document.getElementById('support-form').classList.add('hidden');
             document.getElementById('support-success').classList.remove('hidden');
-            
-            // Optional: Telegram Bot integration fallback (ping bot API to notify group)
-            const botToken = "8253538797:AAHIFJJOMzh2PWIlwR3TujV79S-PBTYogcg";
-            const chatId = "-1002527868754";
-            const text = `🚨 New Support Ticket\nUser: ${data.username}\nID: ${data.telegram_id}\nSubject: ${data.subject}\n\n${data.description}`;
-            fetch(`https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(text)}`).catch(console.error);
-
         } catch (err) {
             showToast("❌ Submission failed. Try again.", "error");
         } finally {
