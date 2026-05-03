@@ -547,9 +547,12 @@
             </div>
 
             <!-- Action Buttons -->
-            <div class="flex gap-2 pb-4">
-                <button class="btn-primary" onclick="window.closeAnalysisModal()">✓ Done</button>
-                <button class="btn-secondary" onclick="document.getElementById('btn-analyze-action').click(); window.closeAnalysisModal();">🔄 Re-analyze</button>
+            <div class="flex-col gap-2 pb-4">
+                <div class="flex gap-2">
+                    <button class="btn-primary" onclick="window.closeAnalysisModal()">✓ Done</button>
+                    <button class="btn-secondary" onclick="document.getElementById('btn-analyze-action').click(); window.closeAnalysisModal();">🔄 Re-analyze</button>
+                </div>
+                <button class="btn-secondary" style="border-color: #0088cc; color: #0088cc;" onclick="window.shareAnalysis()">📤 Share Signal</button>
             </div>
         </div>
     </div>
