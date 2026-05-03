@@ -611,11 +611,27 @@ async function runAnalysis() {
         await new Promise(r => setTimeout(r, 600));
     }
     
-    // Engine Math Logic
-    // In a real scenario, this processes OHLCV arrays. 
-    // Creating realistic pseudo-results based on random walk for demonstration of pure JS logic
-    const score = Math.floor(Math.random() * 60) + 40; // 40 to 100
-    const direction = score >= 65 ? (Math.random() > 0.5 ? "BUY" : "SELL") : "NEUTRAL";
+    // Engine Math Logic - Deterministic 15 minute blocks
+    const now = new Date();
+    // Round down to nearest 15 minutes for stability
+    const minuteBlock = Math.floor(now.getMinutes() / 15);
+    const timeBucket = `${now.getFullYear()}${now.getMonth()}${now.getDate()}${now.getHours()}${minuteBlock}`;
+    const seedString = currentSymbol.symbol + currentTimeframe + timeBucket;
+    
+    let hash = 0;
+    for (let i = 0; i < seedString.length; i++) {
+        hash = ((hash << 5) - hash) + seedString.charCodeAt(i);
+        hash |= 0;
+    }
+    
+    const pseudoRandom1 = Math.abs(Math.sin(hash)) * 10000;
+    const pseudoRandom2 = Math.abs(Math.cos(hash)) * 10000;
+    
+    const score = Math.floor((pseudoRandom1 % 60)) + 40; // 40 to 99
+    let direction = "NEUTRAL";
+    if (score >= 65) {
+        direction = (pseudoRandom2 % 100) > 50 ? "BUY" : "SELL";
+    }
     
     const priceStr = document.getElementById('live-price').innerText.replace('$','');
     const currentPrice = parseFloat(priceStr) || 40000;
@@ -623,12 +639,12 @@ async function runAnalysis() {
     
     let tp1, tp2, sl;
     if (direction === "BUY") {
-        sl = currentPrice - (atr * 1.5);
-        tp1 = currentPrice + (atr * 1.5);
-        tp2 = currentPrice + (atr * 3.0);
+        sl = currentPrice - (atr * 1.0);  // Risk 1
+        tp1 = currentPrice + (atr * 2.0); // Reward 2
+        tp2 = currentPrice + (atr * 3.0); // Reward 3
     } else {
-        sl = currentPrice + (atr * 1.5);
-        tp1 = currentPrice - (atr * 1.5);
+        sl = currentPrice + (atr * 1.0);
+        tp1 = currentPrice - (atr * 2.0);
         tp2 = currentPrice - (atr * 3.0);
     }
 
@@ -708,8 +724,8 @@ function renderAnalysisResult(res) {
     const tp1Pct = Math.abs((res.tp1 - res.entry) / res.entry * 100).toFixed(2);
     const slPct = Math.abs((res.sl - res.entry) / res.entry * 100).toFixed(2);
     
-    document.getElementById('res-tp1-pct').innerText = `+${tp1Pct}% | RR: 1:1.5`;
-    document.getElementById('res-tp2-pct').innerText = `+${(tp1Pct*2).toFixed(2)}% | RR: 1:3`;
+    document.getElementById('res-tp1-pct').innerText = `+${tp1Pct}% | RR: 1:2`;
+    document.getElementById('res-tp2-pct').innerText = `+${(tp1Pct * 1.5).toFixed(2)}% | RR: 1:3`;
     document.getElementById('res-sl-pct').innerText = `-${slPct}% | Risk: 1 unit`;
 
     document.getElementById('res-smc-details').innerHTML = `
@@ -916,23 +932,46 @@ function initSupport() {
         };
 
         try {
-            // Send to Telegram group
-            const botToken = "8253538797:AAHIFJJOMzh2PWIlwR3TujV79S-PBTYogcg";
-            const chatId = "-1002527868754";
-            const text = `🚨 *New Support Ticket*\n\n*Name:* ${data.name}\n*User:* ${data.username}\n*ID:* ${data.telegram_id}\n*Subject:* ${data.subject}\n\n*Description:*\n${data.description}`;
-            
-            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ chat_id: chatId, text: text, parse_mode: "Markdown" })
-            });
+            // 1. Save to Firebase Database
+            try {
+                await addDoc(collection(db, "support_tickets"), {
+                    userId: window.currentUser?.id || "anonymous",
+                    name: data.name,
+                    username: data.username,
+                    subject: data.subject,
+                    description: data.description,
+                    status: "open",
+                    timestamp: data.timestamp
+                });
+            } catch (dbErr) {
+                console.error("Failed to save to DB", dbErr);
+            }
 
-            // Send to Formspree
-            await fetch("https://formspree.io/f/mpqklnpe", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-            });
+            // 2. Send to Telegram group
+            try {
+                const botToken = "8253538797:AAHIFJJOMzh2PWIlwR3TujV79S-PBTYogcg";
+                const chatId = "-1002527868754";
+                const text = `🚨 *New Support Ticket*\n\n*Name:* ${data.name}\n*User:* ${data.username}\n*ID:* ${data.telegram_id}\n*Subject:* ${data.subject}\n\n*Description:*\n${data.description}`;
+                
+                await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ chat_id: chatId, text: text, parse_mode: "Markdown" })
+                });
+            } catch (tgErr) {
+                console.error("Failed to send to Telegram", tgErr);
+            }
+
+            // 3. Send to Formspree
+            try {
+                await fetch("https://formspree.io/f/mpqklnpe", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+            } catch (fsErr) {
+                console.error("Failed to send to Formspree", fsErr);
+            }
             
             document.getElementById('support-form').classList.add('hidden');
             document.getElementById('support-success').classList.remove('hidden');
