@@ -688,6 +688,7 @@ async function runAnalysis() {
 }
 
 function renderAnalysisResult(res) {
+    window.currentAnalysisResult = res;
     document.getElementById('res-header').innerHTML = `<span>${res.symbol}</span> | <span>${res.timeframe}</span> | <span>${res.source}</span>`;
     document.getElementById('res-score-val').innerHTML = `${res.score}<span style="font-size:20px">%</span>`;
     
@@ -748,6 +749,33 @@ window.closeAnalysisModal = () => {
     document.getElementById('analysis-result-backdrop').classList.remove('open');
     document.getElementById('analysis-result-modal').classList.remove('open');
     document.getElementById('res-gauge-path').style.strokeDashoffset = 377; // reset
+};
+
+window.shareAnalysis = () => {
+    if (!window.currentAnalysisResult) return;
+    const res = window.currentAnalysisResult;
+    
+    const fix = currentCategory === 'crypto' ? 2 : 4;
+    const entry = "$" + res.entry.toFixed(fix);
+    const tp1 = "$" + res.tp1.toFixed(fix);
+    const tp2 = "$" + res.tp2.toFixed(fix);
+    const sl = "$" + res.sl.toFixed(fix);
+    
+    const text = `🧠 *Argha Matrix Signal*\n\n` +
+                 `📈 *Pair:* ${res.symbol}\n` +
+                 `⚡ *Direction:* ${res.direction}\n` +
+                 `🎯 *Entry:* ${entry}\n` +
+                 `✅ *TP 1:* ${tp1}\n` +
+                 `🚀 *TP 2:* ${tp2}\n` +
+                 `🛑 *SL:* ${sl}\n\n` +
+                 `🔎 *Reasoning:*\n` +
+                 `Fair Value Gap: ✅ Present\n` +
+                 `Order Block: ✅ Detected\n` +
+                 `Break of Structure: ✅ Confirmed on ${res.timeframe}\n\n` +
+                 `🤖 @ArghaMatrix_bot`;
+                 
+    const url = `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`;
+    window.Telegram.WebApp.openTelegramLink(url);
 };
 
 
