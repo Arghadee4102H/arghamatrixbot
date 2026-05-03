@@ -204,8 +204,23 @@ async function renderHome() {
     }
 
     if (user.premium_active) {
-        document.getElementById('home-premium-badge').classList.remove('hidden');
+        const badge = document.getElementById('home-premium-badge');
+        badge.classList.remove('hidden');
         document.getElementById('home-free-badge').classList.add('hidden');
+        
+        if (user.premium_expires) {
+            let expDate = user.premium_expires;
+            if (expDate && typeof expDate.toDate === 'function') expDate = expDate.toDate();
+            else expDate = new Date(expDate);
+            
+            const diffTime = expDate - new Date();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays > 0) {
+                badge.innerText = `⭐ PREMIUM ACTIVE (${diffDays} days left)`;
+            } else {
+                badge.innerText = `⭐ PREMIUM ACTIVE (Expires today)`;
+            }
+        }
     }
 
     document.getElementById('home-stat-credits').innerText = formatNumber(user.credits);
@@ -933,10 +948,17 @@ async function loadHistory(tab) {
             
             if (d.type === 'analysis') { icon = "📊"; title = "Market Analysis: " + d.symbol; color = "var(--text-muted)"; }
             else if (d.type === 'ad_reward') { icon = "📺"; title = "Ad Reward"; color = "var(--accent-green)"; }
-            else if (d.type.startsWith('pending_')) { 
-                icon = "⏳"; 
-                title = "Pending: " + (d.item || "TopUp"); 
-                rightSide = `<div class="pill pill-gold" style="font-size:10px;">Pending</div>`; 
+            else if (d.type.startsWith('pending_') || d.status) { 
+                if (d.status === 'success') {
+                    icon = "✅"; title = "Success: " + (d.item || "TopUp");
+                    rightSide = `<div class="pill pill-green" style="font-size:10px;">Success</div>`;
+                } else if (d.status === 'failed' || d.status === 'rejected') {
+                    icon = "❌"; title = "Failed: " + (d.item || "TopUp");
+                    rightSide = `<div class="pill pill-red" style="font-size:10px;">Rejected</div>`;
+                } else {
+                    icon = "⏳"; title = "Pending: " + (d.item || "TopUp"); 
+                    rightSide = `<div class="pill pill-gold" style="font-size:10px;">Pending</div>`; 
+                }
             }
             
             html += `
