@@ -113,7 +113,11 @@ async function autoLoginOrRegister(telegramUser) {
     }
 
     if (window.currentUser.premium_active && window.currentUser.premium_expires) {
-        if (new Date(window.currentUser.premium_expires) < new Date()) {
+        let expDate = window.currentUser.premium_expires;
+        if (expDate && typeof expDate.toDate === 'function') expDate = expDate.toDate();
+        else expDate = new Date(expDate);
+
+        if (expDate < new Date()) {
             await updateDoc(userRef, { premium_active: false });
             window.currentUser.premium_active = false;
             showToast("⚠️ Your premium plan has expired.", "warning");
@@ -840,6 +844,16 @@ function showPaymentModal(itemData, type) {
                 status: "pending",
                 timestamp: new Date().toISOString()
             });
+            
+            // Add to User History as well
+            await addDoc(collection(db, "users", String(window.currentUser.id), "history"), {
+                type: "pending_" + type,
+                amount: itemData.price,
+                item: itemData.name,
+                status: "pending",
+                timestamp: new Date().toISOString()
+            });
+            
             document.getElementById('payment-modal').classList.remove('open');
             showToast("✅ Payment submitted! Awaiting admin verification (up to 30 mins).");
         } catch (e) {
@@ -893,39 +907,43 @@ async function loadHistory(tab) {
     container.innerHTML = `<div class="text-center text-muted" style="padding: 40px 0;">Loading history...</div>`;
     
     try {
-        let q;
         const ref = collection(db, "users", String(window.currentUser.id), "history");
-        
-        if (tab === 'all') {
-            q = query(ref, orderBy("timestamp", "desc"), limit(10));
-        } else if (tab === 'analysis') {
-            q = query(ref, where("type", "==", "analysis"), orderBy("timestamp", "desc"), limit(10));
-        } else if (tab === 'topup') {
-            q = query(ref, where("type", "in", ["credit", "premium", "pending_credit"]), orderBy("timestamp", "desc"), limit(10));
-        } else if (tab === 'ads') {
-            q = query(ref, where("type", "==", "ad_reward"), orderBy("timestamp", "desc"), limit(10));
-        }
-
+        const q = query(ref, orderBy("timestamp", "desc"), limit(50));
         const snaps = await getDocs(q);
-        if (snaps.empty) {
+        
+        let filtered = [];
+        snaps.forEach(docSnap => {
+            const d = docSnap.data();
+            if (tab === 'all') filtered.push(d);
+            else if (tab === 'analysis' && d.type === 'analysis') filtered.push(d);
+            else if (tab === 'topup' && ["credit", "premium", "pending_credit", "pending_premium"].includes(d.type)) filtered.push(d);
+            else if (tab === 'ads' && d.type === 'ad_reward') filtered.push(d);
+        });
+
+        if (filtered.length === 0) {
             container.innerHTML = `<div class="text-center text-muted" style="padding: 40px 0;">No history found.</div>`;
             return;
         }
 
         let html = "";
-        snaps.forEach(docSnap => {
-            const d = docSnap.data();
+        filtered.slice(0, 20).forEach(d => {
             const date = new Date(d.timestamp).toLocaleString();
             let icon = "📝", title = "Transaction", color = "var(--text-primary)";
+            let rightSide = `<div class="font-bold" style="color:${d.amount > 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">${d.amount > 0 ? '+' : ''}${d.amount} cr</div>`;
             
             if (d.type === 'analysis') { icon = "📊"; title = "Market Analysis: " + d.symbol; color = "var(--text-muted)"; }
-            if (d.type === 'ad_reward') { icon = "📺"; title = "Ad Reward"; color = "var(--accent-green)"; }
+            else if (d.type === 'ad_reward') { icon = "📺"; title = "Ad Reward"; color = "var(--accent-green)"; }
+            else if (d.type.startsWith('pending_')) { 
+                icon = "⏳"; 
+                title = "Pending: " + (d.item || "TopUp"); 
+                rightSide = `<div class="pill pill-gold" style="font-size:10px;">Pending</div>`; 
+            }
             
             html += `
                 <div class="history-item">
                     <div class="flex justify-between items-center">
                         <div class="font-bold flex gap-2"><span style="font-size:16px;">${icon}</span> ${title}</div>
-                        <div class="font-bold" style="color:${d.amount > 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">${d.amount > 0 ? '+' : ''}${d.amount} cr</div>
+                        ${rightSide}
                     </div>
                     <div class="text-muted" style="font-size:10px;">${date}</div>
                 </div>
