@@ -608,7 +608,15 @@ async function fetchTwelveDataHistory() {
         if(interval === '15m') interval = '15min';
         if(interval === '30m') interval = '30min';
         
-        const res = await fetch(`https://api.twelvedata.com/time_series?symbol=${currentSymbol.display}&interval=${interval}&outputsize=100&apikey=${TWELVEDATA_API_KEY}`);
+        let queryParam = `symbol=${currentSymbol.symbol}`;
+        if (currentCategory === 'forex' || currentCategory === 'metals') {
+            queryParam = `symbol=${currentSymbol.display.split(' ')[0]}`;
+        }
+        if (currentSymbol.exchange === 'NSE') {
+            queryParam += `&exchange=NSE`;
+        }
+        
+        const res = await fetch(`https://api.twelvedata.com/time_series?${queryParam}&interval=${interval}&outputsize=100&apikey=${TWELVEDATA_API_KEY}`);
         const data = await res.json();
         if(data.values) {
             const cdata = data.values.reverse().map(d => ({
@@ -633,11 +641,15 @@ async function fetchLiveStats() {
             chgEl.className = pct >= 0 ? "text-green font-bold" : "text-red font-bold";
         } else {
             // Use TwelveData quote API for Forex/Metals/Stocks
-            const symbolToFetch = (currentCategory === 'forex' || currentCategory === 'metals') 
-                                    ? currentSymbol.display.split(' ')[0] 
-                                    : currentSymbol.symbol;
+            let queryParam = `symbol=${currentSymbol.symbol}`;
+            if (currentCategory === 'forex' || currentCategory === 'metals') {
+                queryParam = `symbol=${currentSymbol.display.split(' ')[0]}`;
+            }
+            if (currentSymbol.exchange === 'NSE') {
+                queryParam += `&exchange=NSE`;
+            }
             
-            const res = await fetch(`https://api.twelvedata.com/quote?symbol=${symbolToFetch}&apikey=${TWELVEDATA_API_KEY}`);
+            const res = await fetch(`https://api.twelvedata.com/quote?${queryParam}&apikey=${TWELVEDATA_API_KEY}`);
             const data = await res.json();
             
             if (data && data.close) {
