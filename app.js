@@ -299,16 +299,68 @@ function updateSessionInfo() {
 
 // 6. Analysis Section Logic
 const symbolDatabase = [
+  // Crypto
   { symbol: "BTCUSDT", display: "BTC/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:BTCUSDT" },
   { symbol: "ETHUSDT", display: "ETH/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:ETHUSDT" },
   { symbol: "SOLUSDT", display: "SOL/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:SOLUSDT" },
   { symbol: "BNBUSDT", display: "BNB/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:BNBUSDT" },
+  { symbol: "XRPUSDT", display: "XRP/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:XRPUSDT" },
+  { symbol: "ADAUSDT", display: "ADA/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:ADAUSDT" },
+  { symbol: "DOTUSDT", display: "DOT/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:DOTUSDT" },
+  { symbol: "LTCUSDT", display: "LTC/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:LTCUSDT" },
+  { symbol: "AVAXUSDT", display: "AVAX/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:AVAXUSDT" },
+  { symbol: "LINKUSDT", display: "LINK/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:LINKUSDT" },
+  { symbol: "DOGEUSDT", display: "DOGE/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:DOGEUSDT" },
+  { symbol: "SHIBUSDT", display: "SHIB/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:SHIBUSDT" },
+  { symbol: "PEPEUSDT", display: "PEPE/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:PEPEUSDT" },
+  { symbol: "UNIUSDT", display: "UNI/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:UNIUSDT" },
+  { symbol: "AAVEUSDT", display: "AAVE/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:AAVEUSDT" },
+  { symbol: "ATOMUSDT", display: "ATOM/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:ATOMUSDT" },
+  { symbol: "MATICUSDT", display: "MATIC/USDT", category: "crypto", exchange: "Binance", tvSymbol: "BINANCE:MATICUSDT" },
+  
+  // Forex
   { symbol: "EURUSD", display: "EUR/USD", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:EURUSD" },
   { symbol: "GBPUSD", display: "GBP/USD", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:GBPUSD" },
   { symbol: "USDJPY", display: "USD/JPY", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:USDJPY" },
+  { symbol: "USDCHF", display: "USD/CHF", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:USDCHF" },
+  { symbol: "AUDUSD", display: "AUD/USD", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:AUDUSD" },
+  { symbol: "USDCAD", display: "USD/CAD", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:USDCAD" },
+  { symbol: "NZDUSD", display: "NZD/USD", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:NZDUSD" },
+  { symbol: "USDSEK", display: "USD/SEK", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:USDSEK" },
+  { symbol: "USDNOK", display: "USD/NOK", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:USDNOK" },
+  { symbol: "USDSGD", display: "USD/SGD", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:USDSGD" },
+  { symbol: "USDHKD", display: "USD/HKD", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:USDHKD" },
+  { symbol: "USDINR", display: "USD/INR", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:USDINR" },
+  { symbol: "USDTRY", display: "USD/TRY", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:USDTRY" },
+  { symbol: "USDZAR", display: "USD/ZAR", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:USDZAR" },
+  { symbol: "USDMXN", display: "USD/MXN", category: "forex", exchange: "OANDA", tvSymbol: "OANDA:USDMXN" },
+  { symbol: "USDBRL", display: "USD/BRL", category: "forex", exchange: "OANDA", tvSymbol: "FX_IDC:USDBRL" },
+  
+  // Metals
   { symbol: "XAUUSD", display: "XAU/USD (Gold)", category: "metals", exchange: "OANDA", tvSymbol: "OANDA:XAUUSD" },
+  { symbol: "XAGUSD", display: "XAG/USD (Silver)", category: "metals", exchange: "OANDA", tvSymbol: "OANDA:XAGUSD" },
+  
+  // Stocks (US & India)
   { symbol: "AAPL", display: "Apple Inc.", category: "stocks", exchange: "NASDAQ", tvSymbol: "NASDAQ:AAPL" },
   { symbol: "TSLA", display: "Tesla Inc.", category: "stocks", exchange: "NASDAQ", tvSymbol: "NASDAQ:TSLA" },
+  { symbol: "MSFT", display: "Microsoft", category: "stocks", exchange: "NASDAQ", tvSymbol: "NASDAQ:MSFT" },
+  { symbol: "AMZN", display: "Amazon", category: "stocks", exchange: "NASDAQ", tvSymbol: "NASDAQ:AMZN" },
+  { symbol: "NVDA", display: "NVIDIA", category: "stocks", exchange: "NASDAQ", tvSymbol: "NASDAQ:NVDA" },
+  { symbol: "GOOGL", display: "Alphabet (Google)", category: "stocks", exchange: "NASDAQ", tvSymbol: "NASDAQ:GOOGL" },
+  { symbol: "META", display: "Meta Platforms", category: "stocks", exchange: "NASDAQ", tvSymbol: "NASDAQ:META" },
+  { symbol: "RELIANCE", display: "Reliance", category: "stocks", exchange: "NSE", tvSymbol: "NSE:RELIANCE" },
+  { symbol: "TCS", display: "TCS", category: "stocks", exchange: "NSE", tvSymbol: "NSE:TCS" },
+  { symbol: "HDFCBANK", display: "HDFC Bank", category: "stocks", exchange: "NSE", tvSymbol: "NSE:HDFCBANK" },
+  { symbol: "INFY", display: "Infosys", category: "stocks", exchange: "NSE", tvSymbol: "NSE:INFY" },
+  { symbol: "ICICIBANK", display: "ICICI Bank", category: "stocks", exchange: "NSE", tvSymbol: "NSE:ICICIBANK" },
+  { symbol: "SBIN", display: "State Bank of India", category: "stocks", exchange: "NSE", tvSymbol: "NSE:SBIN" },
+  { symbol: "BHARTIARTL", display: "Bharti Airtel", category: "stocks", exchange: "NSE", tvSymbol: "NSE:BHARTIARTL" },
+  { symbol: "ADANIENT", display: "Adani Ent", category: "stocks", exchange: "NSE", tvSymbol: "NSE:ADANIENT" },
+  { symbol: "ZOMATO", display: "Zomato", category: "stocks", exchange: "NSE", tvSymbol: "NSE:ZOMATO" },
+  { symbol: "PAYTM", display: "Paytm", category: "stocks", exchange: "NSE", tvSymbol: "NSE:PAYTM" },
+  { symbol: "NYKAA", display: "Nykaa", category: "stocks", exchange: "NSE", tvSymbol: "NSE:NYKAA" },
+  
+  // Indices
   { symbol: "SPX", display: "S&P 500", category: "indices", exchange: "SP", tvSymbol: "SP:SPX" }
 ];
 
@@ -408,7 +460,7 @@ function initAnalysis() {
 
 function renderQuickPills(cat) {
     const pillsContainer = document.getElementById('symbol-pills');
-    const syms = symbolDatabase.filter(s => s.category === cat);
+    const syms = symbolDatabase.filter(s => s.category === cat).slice(0, 30);
     pillsContainer.innerHTML = syms.map(s => `
         <div class="pill ${s.symbol === currentSymbol.symbol ? 'active' : ''}" onclick="window.selectSymbol('${s.symbol}')">${s.display}</div>
     `).join('');
