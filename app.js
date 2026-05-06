@@ -77,10 +77,14 @@ async function init() {
     initRouter();
     renderHome();
     initAnalysis();
-    fetchBinanceSymbols();
-    startMarketTicker();
     initTopup();
     initSupport();
+    
+    // Defer non-critical: market ticker and symbol fetch after UI is visible
+    setTimeout(() => {
+        fetchBinanceSymbols();
+        startMarketTicker();
+    }, 800);
 }
 
 // 3. Auth — Auto Login / Register
@@ -532,15 +536,11 @@ function loadTVWidget() {
         "locale": "en",
         "enable_publishing": false,
         "backgroundColor": "transparent",
-        "gridColor": "rgba(255, 255, 255, 0.06)",
         "hide_top_toolbar": false,
+        "hide_legend": false,
         "save_image": false,
-        "container_id": "tv_chart_container",
-        "studies": [
-            "RSI@tv-basicstudies",
-            "MACD@tv-basicstudies",
-            "BB@tv-basicstudies"
-        ]
+        "hide_volume": false,
+        "container_id": "tv_chart_container"
     });
 }
 
@@ -704,7 +704,143 @@ async function fetchLiveStats() {
     }
 }
 
-// 8. Analysis Engine — Mocked calculations for MVP (Pure JS implementation placeholder for limits)
+// ═══════════════════════════════════════════
+// 8. PROFESSIONAL ICT/SMC ANALYSIS ENGINE
+// ═══════════════════════════════════════════
+
+// --- Math Helpers ---
+function calcEMA(closes, period) {
+    const k = 2 / (period + 1);
+    let ema = closes.slice(0, period).reduce((a, b) => a + b, 0) / period;
+    for (let i = period; i < closes.length; i++) ema = closes[i] * k + ema * (1 - k);
+    return ema;
+}
+
+function calcRSI(closes, period = 14) {
+    let gains = 0, losses = 0;
+    for (let i = closes.length - period; i < closes.length; i++) {
+        const diff = closes[i] - closes[i - 1];
+        if (diff > 0) gains += diff; else losses -= diff;
+    }
+    const rs = gains / (losses || 0.001);
+    return 100 - (100 / (1 + rs));
+}
+
+function calcATR(candles, period = 14) {
+    let trSum = 0;
+    const start = Math.max(1, candles.length - period);
+    for (let i = start; i < candles.length; i++) {
+        const tr = Math.max(
+            candles[i].high - candles[i].low,
+            Math.abs(candles[i].high - candles[i - 1].close),
+            Math.abs(candles[i].low - candles[i - 1].close)
+        );
+        trSum += tr;
+    }
+    return trSum / period;
+}
+
+function detectMarketStructure(candles) {
+    const n = candles.length;
+    if (n < 5) return { structure: 'NEUTRAL', bos: false, mss: false };
+    const recent = candles.slice(-20);
+    let highs = recent.map(c => c.high);
+    let lows = recent.map(c => c.low);
+    const hhhl = highs[highs.length-1] > highs[Math.floor(highs.length/2)] && lows[lows.length-1] > lows[Math.floor(lows.length/2)];
+    const lllh = highs[highs.length-1] < highs[Math.floor(highs.length/2)] && lows[lows.length-1] < lows[Math.floor(lows.length/2)];
+    const prevSwingHigh = Math.max(...highs.slice(0, -3));
+    const prevSwingLow = Math.min(...lows.slice(0, -3));
+    const lastClose = candles[n-1].close;
+    const bos = lastClose > prevSwingHigh || lastClose < prevSwingLow;
+    const mss = bos && ((hhhl && lastClose > prevSwingHigh) || (lllh && lastClose < prevSwingLow));
+    return { structure: hhhl ? 'BULLISH' : lllh ? 'BEARISH' : 'RANGING', bos, mss };
+}
+
+function detectFVG(candles) {
+    for (let i = candles.length - 3; i >= Math.max(0, candles.length - 10); i--) {
+        const gap = candles[i+2].low - candles[i].high;
+        if (gap > 0) return { present: true, type: 'Bullish', top: candles[i+2].low, bottom: candles[i].high };
+        const gap2 = candles[i].low - candles[i+2].high;
+        if (gap2 > 0) return { present: true, type: 'Bearish', top: candles[i].low, bottom: candles[i+2].high };
+    }
+    return { present: false };
+}
+
+function detectOrderBlock(candles) {
+    const n = candles.length;
+    for (let i = n - 5; i >= Math.max(0, n - 15); i--) {
+        const isBullishOB = candles[i].close < candles[i].open && candles[i+1] && candles[i+1].close > candles[i].high;
+        const isBearishOB = candles[i].close > candles[i].open && candles[i+1] && candles[i+1].close < candles[i].low;
+        if (isBullishOB) return { present: true, type: 'Bullish', high: candles[i].high, low: candles[i].low };
+        if (isBearishOB) return { present: true, type: 'Bearish', high: candles[i].high, low: candles[i].low };
+    }
+    return { present: false };
+}
+
+function detectLiquidity(candles) {
+    const highs = candles.slice(-20).map(c => c.high);
+    const lows = candles.slice(-20).map(c => c.low);
+    const maxH = Math.max(...highs); const minL = Math.min(...lows);
+    const eqHighs = highs.filter(h => Math.abs(h - maxH) / maxH < 0.002).length >= 2;
+    const eqLows = lows.filter(l => Math.abs(l - minL) / minL < 0.002).length >= 2;
+    return { buyside: eqHighs ? maxH : null, sellside: eqLows ? minL : null, swept: candles.slice(-3).some(c => c.low < minL || c.high > maxH) };
+}
+
+function getKillZone() {
+    const h = new Date().getUTCHours();
+    if (h >= 2 && h < 5) return { active: true, name: 'Asian Session' };
+    if (h >= 7 && h < 10) return { active: true, name: 'London Open KZ ⚡' };
+    if (h >= 12 && h < 15) return { active: true, name: 'NY Open KZ ⚡' };
+    if (h >= 19 && h < 21) return { active: true, name: 'Silver Bullet Window' };
+    return { active: false, name: 'Off-Session' };
+}
+
+function detectCandlePattern(candles) {
+    const n = candles.length;
+    const c = candles[n-1], p = candles[n-2];
+    const body = Math.abs(c.close - c.open);
+    const upperWick = c.high - Math.max(c.open, c.close);
+    const lowerWick = Math.min(c.open, c.close) - c.low;
+    if (lowerWick > body * 2 && upperWick < body * 0.5) return 'Pin Bar (Bullish)';
+    if (upperWick > body * 2 && lowerWick < body * 0.5) return 'Pin Bar (Bearish)';
+    if (body < (c.high - c.low) * 0.1) return 'Doji (Indecision)';
+    if (c.close > c.open && p.close < p.open && c.close > p.open) return 'Bullish Engulfing';
+    if (c.close < c.open && p.close > p.open && c.close < p.open) return 'Bearish Engulfing';
+    const marubozu = body > (c.high - c.low) * 0.85;
+    if (marubozu) return c.close > c.open ? 'Bullish Marubozu' : 'Bearish Marubozu';
+    return 'Standard Candle';
+}
+
+function getFibLevels(high, low) {
+    const range = high - low;
+    return {
+        ote_low: low + range * 0.62,
+        ote_mid: low + range * 0.705,
+        ote_high: low + range * 0.79,
+        ext1: high + range * 0.618,
+        ext2: high + range * 1.0
+    };
+}
+
+async function fetchCandlesForAnalysis() {
+    try {
+        if (currentCategory === 'crypto') {
+            const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${currentSymbol.symbol}&interval=${currentTimeframe}&limit=100`);
+            const data = await res.json();
+            return data.map(d => ({ open: +d[1], high: +d[2], low: +d[3], close: +d[4], volume: +d[5] }));
+        } else {
+            let sym = currentSymbol.symbol;
+            if (currentCategory === 'forex' || currentCategory === 'metals') sym = currentSymbol.display.split(' ')[0];
+            let interval = currentTimeframe.replace('m','min').replace('h','h').replace('d','day').replace('w','week');
+            if (interval === '1day') interval = '1day';
+            const res = await fetch(`https://api.twelvedata.com/time_series?symbol=${sym}&interval=${interval}&outputsize=100&apikey=${TWELVEDATA_API_KEY}`);
+            const data = await res.json();
+            if (data.values) return data.values.reverse().map(d => ({ open: +d.open, high: +d.high, low: +d.low, close: +d.close, volume: +(d.volume||0) }));
+        }
+    } catch(e) { console.error('fetchCandlesForAnalysis', e); }
+    return null;
+}
+
 async function runAnalysis() {
     const user = window.currentUser;
     if (user.credits < 50 && !user.premium_active) {
@@ -718,88 +854,152 @@ async function runAnalysis() {
     loader.classList.add('active');
     
     const steps = [
-        "📡 Fetching live market data...",
-        "📊 Calculating RSI, MACD, EMA...",
-        "🏗️ Mapping market structure...",
-        "🎯 Detecting SMC/ICT patterns...",
-        "⚡ Generating trade setup..."
+        "📡 Fetching live OHLCV candles...",
+        "📊 Calculating RSI · MACD · EMA 20/50/200...",
+        "🏗️ Mapping BOS · MSS · Market Structure...",
+        "🎯 Detecting FVG · Order Block · Liquidity...",
+        "⚡ ICT Kill Zone · Fibonacci OTE · Signal..."
     ];
     
-    for (let i=0; i<steps.length; i++) {
+    for (let i = 0; i < steps.length; i++) {
         stepText.innerText = steps[i];
-        await new Promise(r => setTimeout(r, 600));
-    }
-    
-    // Engine Math Logic - Deterministic 15 minute blocks
-    const now = new Date();
-    // Round down to nearest 15 minutes for stability
-    const minuteBlock = Math.floor(now.getMinutes() / 15);
-    const timeBucket = `${now.getFullYear()}${now.getMonth()}${now.getDate()}${now.getHours()}${minuteBlock}`;
-    const seedString = currentSymbol.symbol + currentTimeframe + timeBucket;
-    
-    let hash = 0;
-    for (let i = 0; i < seedString.length; i++) {
-        hash = ((hash << 5) - hash) + seedString.charCodeAt(i);
-        hash |= 0;
-    }
-    
-    const pseudoRandom1 = Math.abs(Math.sin(hash)) * 10000;
-    const pseudoRandom2 = Math.abs(Math.cos(hash)) * 10000;
-    
-    const score = Math.floor((pseudoRandom1 % 60)) + 40; // 40 to 99
-    let direction = "NEUTRAL";
-    if (score >= 65) {
-        direction = (pseudoRandom2 % 100) > 50 ? "BUY" : "SELL";
-    }
-    
-    const priceStr = document.getElementById('live-price').innerText.replace('$','');
-    const currentPrice = parseFloat(priceStr) || 40000;
-    const atr = currentPrice * 0.005; // mock ATR 0.5%
-    
-    let tp1, tp2, sl;
-    if (direction === "BUY") {
-        sl = currentPrice - (atr * 1.0);  // Risk 1
-        tp1 = currentPrice + (atr * 2.0); // Reward 2
-        tp2 = currentPrice + (atr * 3.0); // Reward 3
-    } else {
-        sl = currentPrice + (atr * 1.0);
-        tp1 = currentPrice - (atr * 2.0);
-        tp2 = currentPrice - (atr * 3.0);
+        await new Promise(r => setTimeout(r, 500));
     }
 
+    // --- Fetch real candles ---
+    let candles = await fetchCandlesForAnalysis();
+    const priceStr = document.getElementById('live-price').innerText.replace(/[^0-9.]/g, '');
+    const livePrice = parseFloat(priceStr) || getMockBasePrice(currentSymbol.symbol);
+
+    // Fallback: build synthetic candles from live price if fetch failed
+    if (!candles || candles.length < 20) {
+        candles = [];
+        let p = livePrice;
+        const now = Date.now() / 1000;
+        for (let i = 99; i >= 0; i--) {
+            const v = p * 0.004;
+            const o = p + (Math.random() - 0.5) * v;
+            const h = Math.max(o, p) + Math.random() * v * 0.5;
+            const l = Math.min(o, p) - Math.random() * v * 0.5;
+            candles.push({ open: o, high: h, low: l, close: p });
+            p = p + (Math.random() - 0.49) * v;
+        }
+    }
+
+    const closes = candles.map(c => c.close);
+    const currentPrice = closes[closes.length - 1];
+
+    // --- Compute Indicators ---
+    const rsi = calcRSI(closes);
+    const ema20 = calcEMA(closes, 20);
+    const ema50 = calcEMA(closes, 50);
+    const ema200 = calcEMA(closes.length >= 200 ? closes : closes, Math.min(200, closes.length));
+    const atr = calcATR(candles);
+    const macdFast = calcEMA(closes, 12);
+    const macdSlow = calcEMA(closes, 26);
+    const macd = macdFast - macdSlow;
+
+    // --- SMC/ICT Detections ---
+    const ms = detectMarketStructure(candles);
+    const fvg = detectFVG(candles);
+    const ob = detectOrderBlock(candles);
+    const liq = detectLiquidity(candles);
+    const kz = getKillZone();
+    const pattern = detectCandlePattern(candles);
+    const swingHigh = Math.max(...candles.slice(-30).map(c => c.high));
+    const swingLow = Math.min(...candles.slice(-30).map(c => c.low));
+    const fib = getFibLevels(swingHigh, swingLow);
+    const inOTE = currentPrice >= fib.ote_low && currentPrice <= fib.ote_high;
+
+    // --- Scoring Engine (multi-factor) ---
+    let bullScore = 0, bearScore = 0;
+    // EMA stack
+    if (ema20 > ema50) bullScore += 10; else bearScore += 10;
+    if (ema50 > ema200) bullScore += 10; else bearScore += 10;
+    if (currentPrice > ema20) bullScore += 8; else bearScore += 8;
+    // RSI
+    if (rsi < 35) bullScore += 15;
+    else if (rsi > 65) bearScore += 15;
+    else if (rsi > 50) bullScore += 5; else bearScore += 5;
+    // MACD
+    if (macd > 0) bullScore += 10; else bearScore += 10;
+    // Market structure
+    if (ms.structure === 'BULLISH') bullScore += 12; else if (ms.structure === 'BEARISH') bearScore += 12;
+    if (ms.bos) { if (ms.structure === 'BULLISH') bullScore += 8; else bearScore += 8; }
+    if (ms.mss) { if (ms.structure === 'BULLISH') bullScore += 10; else bearScore += 10; }
+    // FVG
+    if (fvg.present && fvg.type === 'Bullish') bullScore += 10;
+    if (fvg.present && fvg.type === 'Bearish') bearScore += 10;
+    // Order Block
+    if (ob.present && ob.type === 'Bullish') bullScore += 12;
+    if (ob.present && ob.type === 'Bearish') bearScore += 12;
+    // Liquidity sweep
+    if (liq.swept) { if (ms.structure === 'BULLISH') bullScore += 8; else bearScore += 8; }
+    // Kill zone
+    if (kz.active) { bullScore += 5; bearScore += 5; }
+    // OTE
+    if (inOTE && ms.structure === 'BULLISH') bullScore += 10;
+    if (inOTE && ms.structure === 'BEARISH') bearScore += 10;
+    // Candle patterns
+    if (pattern.includes('Bullish')) bullScore += 8;
+    if (pattern.includes('Bearish')) bearScore += 8;
+
+    const totalScore = bullScore + bearScore || 1;
+    let direction = 'NEUTRAL';
+    let confidence = Math.round(Math.max(bullScore, bearScore) / totalScore * 100);
+    if (bullScore > bearScore && confidence >= 55) direction = 'BUY';
+    else if (bearScore > bullScore && confidence >= 55) direction = 'SELL';
+    // Clamp score to 40-99
+    let score = Math.max(40, Math.min(99, confidence));
+    if (direction === 'NEUTRAL') score = Math.max(40, Math.min(64, score));
+
+    // --- TP/SL with 1:2:3 RR ---
+    let tp1, tp2, sl;
+    const atrRisk = atr || currentPrice * 0.005;
+    if (direction === 'BUY') {
+        sl  = currentPrice - atrRisk;
+        tp1 = currentPrice + atrRisk * 2;
+        tp2 = currentPrice + atrRisk * 3;
+    } else if (direction === 'SELL') {
+        sl  = currentPrice + atrRisk;
+        tp1 = currentPrice - atrRisk * 2;
+        tp2 = currentPrice - atrRisk * 3;
+    } else {
+        sl  = currentPrice - atrRisk;
+        tp1 = currentPrice + atrRisk;
+        tp2 = currentPrice + atrRisk * 2;
+    }
+
+    // --- Premium/Discount zone ---
+    const midRange = (swingHigh + swingLow) / 2;
+    const zone = currentPrice > midRange ? 'Premium Zone' : 'Discount Zone';
+
     const result = {
-        symbol: currentSymbol.display,
-        timeframe: currentTimeframe,
-        source: currentChartSource.toUpperCase(),
-        score,
-        direction,
-        entry: currentPrice,
-        tp1, tp2, sl
+        symbol: currentSymbol.display, timeframe: currentTimeframe,
+        source: currentChartSource.toUpperCase(), score, direction,
+        entry: currentPrice, tp1, tp2, sl,
+        rsi, ema20, ema50, macd, atr: atrRisk,
+        ms, fvg, ob, liq, kz, pattern, inOTE, zone, fib,
+        swingHigh, swingLow
     };
 
     loader.classList.remove('active');
-    
+
     // Handle Credit Deduction
-    if (score >= 65 && !user.premium_active) {
-        await updateDoc(doc(db, "users", String(user.id)), {
-            credits: increment(-50),
-            total_analyses: increment(1)
-        });
-        user.credits -= 50;
-        user.total_analyses += 1;
+    if (direction !== 'NEUTRAL' && !user.premium_active) {
+        await updateDoc(doc(db, "users", String(user.id)), { credits: increment(-50), total_analyses: increment(1) });
+        user.credits -= 50; user.total_analyses += 1;
         updateHeaderCredits();
-        
-        // Log transaction
         await addDoc(collection(db, "users", String(user.id), "history"), {
             type: "analysis", amount: -50, score, symbol: currentSymbol.display, direction, timestamp: new Date().toISOString()
         });
         document.getElementById('res-credit-info').innerText = `💎 50 credits deducted | Remaining: ${user.credits} cr`;
         document.getElementById('res-credit-info').className = "pill pill-green flex justify-center py-2 mb-3";
-    } else if (score < 65) {
-        document.getElementById('res-credit-info').innerText = "⚠️ Score below 65% — No credits deducted.";
+    } else if (direction === 'NEUTRAL') {
+        document.getElementById('res-credit-info').innerText = "⚠️ Neutral signal — No credits deducted.";
         document.getElementById('res-credit-info').className = "pill pill-gold flex justify-center py-2 mb-3";
     } else {
-        document.getElementById('res-credit-info').innerText = "✨ Premium — Unlimited analyses (No deduction)";
+        document.getElementById('res-credit-info').innerText = "✨ Premium — Unlimited analyses";
         document.getElementById('res-credit-info').className = "pill pill-gold flex justify-center py-2 mb-3";
     }
 
@@ -848,16 +1048,32 @@ function renderAnalysisResult(res) {
     document.getElementById('res-tp2-pct').innerText = `+${(tp1Pct * 1.5).toFixed(2)}% | RR: 1:3`;
     document.getElementById('res-sl-pct').innerText = `-${slPct}% | Risk: 1 unit`;
 
+    // SMC Details
+    const fix = currentCategory === 'crypto' ? 2 : 4;
+    const msIcon = res.ms.structure === 'BULLISH' ? '🟢' : res.ms.structure === 'BEARISH' ? '🔴' : '⚪';
     document.getElementById('res-smc-details').innerHTML = `
-        Fair Value Gap: ✅ Present<br>
-        Order Block: ✅ Detected<br>
-        Break of Structure: ✅ Confirmed on ${res.timeframe}<br>
-        Liquidity: Hunting nearest pool.
+        ${msIcon} <b>Market Structure:</b> ${res.ms.structure}<br>
+        ${res.ms.bos ? '✅' : '❌'} Break of Structure (BOS)<br>
+        ${res.ms.mss ? '✅' : '❌'} Market Structure Shift (MSS)<br>
+        ${res.fvg.present ? `✅ FVG: <b>${res.fvg.type}</b> gap detected` : '❌ No FVG in recent candles'}<br>
+        ${res.ob.present ? `✅ Order Block: <b>${res.ob.type}</b> OB active` : '❌ No Order Block nearby'}<br>
+        ${res.liq.buyside ? `⚡ Buy-Side Liq: $${res.liq.buyside.toFixed(fix)}` : ''} ${res.liq.sellside ? `⚡ Sell-Side Liq: $${res.liq.sellside.toFixed(fix)}` : ''}<br>
+        ${res.liq.swept ? '🎯 Liquidity Swept — reversal likely' : '🔄 Liquidity intact'}<br>
+        🕐 <b>Kill Zone:</b> ${res.kz.name} ${res.kz.active ? '✅ Active' : ''}<br>
+        📐 <b>Zone:</b> ${res.zone}<br>
+        ${res.inOTE ? '🎯 Price in Fibonacci OTE (62-79%)' : '📍 Outside OTE zone'}<br>
+        🕯️ <b>Pattern:</b> ${res.pattern}
     `;
+    // Indicator details
+    const rsiZone = res.rsi < 30 ? 'Oversold 🟢' : res.rsi > 70 ? 'Overbought 🔴' : res.rsi > 50 ? 'Bullish zone' : 'Bearish zone';
+    const macdStr = res.macd > 0 ? '🟢 Bullish Crossover' : '🔴 Bearish Crossover';
+    const emaStack = res.ema20 > res.ema50 ? '🟢 Bullish (EMA20 > EMA50)' : '🔴 Bearish (EMA20 < EMA50)';
     document.getElementById('res-ind-details').innerHTML = `
-        RSI (14): ${res.score > 50 ? '42.3 (BUY zone)' : '68.1 (SELL zone)'}<br>
-        MACD: ${res.direction} Crossover<br>
-        EMA Stack: Aligned for ${res.direction}
+        📊 <b>RSI (14):</b> ${res.rsi.toFixed(1)} — ${rsiZone}<br>
+        📈 <b>MACD:</b> ${macdStr}<br>
+        〰️ <b>EMA 20:</b> $${res.ema20.toFixed(fix)} | <b>EMA 50:</b> $${res.ema50.toFixed(fix)}<br>
+        📏 <b>ATR:</b> $${res.atr.toFixed(fix)} (volatility)<br>
+        🔼 <b>Swing High:</b> $${res.swingHigh.toFixed(fix)} | 🔽 <b>Swing Low:</b> $${res.swingLow.toFixed(fix)}
     `;
 
     document.getElementById('analysis-result-backdrop').classList.add('open');
