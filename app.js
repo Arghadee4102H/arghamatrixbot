@@ -49,42 +49,62 @@ tg.onEvent('themeChanged', () => {
 });
 
 async function init() {
-    const user = tg.initDataUnsafe?.user;
-    
-    // For local testing bypass (optional: remove in production)
-    const mockUser = { id: 123456789, username: "arghamatrix", first_name: "Argha", last_name: "Matrix" };
-    const activeUser = user || mockUser; // fallback if outside TG for dev
+    try {
+        const user = tg.initDataUnsafe?.user;
+        
+        // For local testing bypass (optional: remove in production)
+        const mockUser = { id: 123456789, username: "arghamatrix", first_name: "Argha", last_name: "Matrix" };
+        const activeUser = user || mockUser;
 
-    if (!user && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+        if (!user && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('telegram-block-screen').classList.remove('hidden');
+            return;
+        }
+
+        const telegramUser = {
+            id: activeUser.id,
+            username: activeUser.username || "NoUsername",
+            first_name: activeUser.first_name,
+            last_name: activeUser.last_name || "",
+            photo_url: activeUser.photo_url || null
+        };
+
+        // Firebase with 10s timeout guard
+        await Promise.race([
+            autoLoginOrRegister(telegramUser),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('Firebase timeout')), 10000))
+        ]).catch(e => {
+            console.warn('Auth fallback:', e.message);
+            if (!window.currentUser) {
+                window.currentUser = {
+                    ...telegramUser,
+                    credits: 200, premium_active: false, premium_expires: null,
+                    total_analyses: 0
+                };
+            }
+        });
+
         document.getElementById('loading-screen').classList.add('hidden');
-        document.getElementById('telegram-block-screen').classList.remove('hidden');
-        return;
+        document.getElementById('app-wrapper').classList.remove('hidden');
+
+        initRouter();
+        renderHome();
+        initAnalysis();
+        initTopup();
+        initSupport();
+
+        setTimeout(() => {
+            fetchBinanceSymbols();
+            startMarketTicker();
+        }, 800);
+
+    } catch (err) {
+        console.error('init() failed:', err);
+        document.getElementById('loading-screen').classList.add('hidden');
+        document.getElementById('app-wrapper').classList.remove('hidden');
+        try { initRouter(); renderHome(); initAnalysis(); initTopup(); initSupport(); } catch(e) {}
     }
-
-    const telegramUser = {
-        id: activeUser.id,
-        username: activeUser.username || "NoUsername",
-        first_name: activeUser.first_name,
-        last_name: activeUser.last_name || "",
-        photo_url: activeUser.photo_url || null
-    };
-
-    await autoLoginOrRegister(telegramUser);
-    
-    document.getElementById('loading-screen').classList.add('hidden');
-    document.getElementById('app-wrapper').classList.remove('hidden');
-    
-    initRouter();
-    renderHome();
-    initAnalysis();
-    initTopup();
-    initSupport();
-    
-    // Defer non-critical: market ticker and symbol fetch after UI is visible
-    setTimeout(() => {
-        fetchBinanceSymbols();
-        startMarketTicker();
-    }, 800);
 }
 
 // 3. Auth — Auto Login / Register
