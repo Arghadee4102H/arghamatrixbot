@@ -35,18 +35,25 @@ let lwSeries = null;
 const TWELVEDATA_API_KEY = "febd9b339aa649acab1ba4744362be68";
 
 // 2. Telegram WebApp Init & User Detection
-const tg = window.Telegram.WebApp;
-tg.ready();
-tg.expand();
-tg.enableClosingConfirmation();
-tg.disableVerticalSwipes();
+let tg = {};
+try {
+    tg = window.Telegram?.WebApp || {};
+    if (tg.ready) tg.ready();
+    if (tg.expand) tg.expand();
+    if (tg.enableClosingConfirmation) tg.enableClosingConfirmation();
+    if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
 
-if (tg.colorScheme === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
+    if (tg.colorScheme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+    }
+    if (tg.onEvent) {
+        tg.onEvent('themeChanged', () => {
+            document.documentElement.setAttribute('data-theme', tg.colorScheme);
+        });
+    }
+} catch (e) {
+    console.warn("Telegram WebApp not found or failed to initialize", e);
 }
-tg.onEvent('themeChanged', () => {
-    document.documentElement.setAttribute('data-theme', tg.colorScheme);
-});
 
 async function init() {
     try {
@@ -57,8 +64,10 @@ async function init() {
         const activeUser = user || mockUser;
 
         if (!user && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-            document.getElementById('loading-screen').classList.add('hidden');
-            document.getElementById('telegram-block-screen').classList.remove('hidden');
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) loadingScreen.classList.add('hidden');
+            const blockScreen = document.getElementById('telegram-block-screen');
+            if (blockScreen) blockScreen.classList.remove('hidden');
             return;
         }
 
@@ -85,24 +94,28 @@ async function init() {
             }
         });
 
-        document.getElementById('loading-screen').classList.add('hidden');
-        document.getElementById('app-wrapper').classList.remove('hidden');
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) loadingScreen.classList.add('hidden');
+        const appWrapper = document.getElementById('app-wrapper');
+        if (appWrapper) appWrapper.classList.remove('hidden');
 
-        initRouter();
-        renderHome();
-        initAnalysis();
-        initTopup();
-        initSupport();
+        try { initRouter(); } catch(e) { console.error('initRouter error:', e); }
+        try { renderHome(); } catch(e) { console.error('renderHome error:', e); }
+        try { initAnalysis(); } catch(e) { console.error('initAnalysis error:', e); }
+        try { initTopup(); } catch(e) { console.error('initTopup error:', e); }
+        try { initSupport(); } catch(e) { console.error('initSupport error:', e); }
 
         setTimeout(() => {
-            fetchBinanceSymbols();
-            startMarketTicker();
+            try { fetchBinanceSymbols(); } catch(e) { console.error('fetchBinanceSymbols error:', e); }
+            try { startMarketTicker(); } catch(e) { console.error('startMarketTicker error:', e); }
         }, 800);
 
     } catch (err) {
         console.error('init() failed:', err);
-        document.getElementById('loading-screen').classList.add('hidden');
-        document.getElementById('app-wrapper').classList.remove('hidden');
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) loadingScreen.classList.add('hidden');
+        const appWrapper = document.getElementById('app-wrapper');
+        if (appWrapper) appWrapper.classList.remove('hidden');
         try { initRouter(); renderHome(); initAnalysis(); initTopup(); initSupport(); } catch(e) {}
     }
 }
