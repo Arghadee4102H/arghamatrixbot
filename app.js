@@ -1454,7 +1454,12 @@ document.getElementById('btn-fullscreen').onclick = () => {
 };
 
 // Bootstrap
-window.addEventListener('load', () => {
-    // Delay slightly to let TG variables load
+function bootstrapApp() {
     setTimeout(init, 500);
-});
+}
+
+if (document.readyState === 'complete') {
+    bootstrapApp();
+} else {
+    window.addEventListener('load', bootstrapApp);
+}
