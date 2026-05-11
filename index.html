@@ -577,7 +577,7 @@
   </nav>
 
 </div>
-
+<script>setTimeout(function(){ if(document.getElementById('progress-pct') && document.getElementById('progress-pct').innerText === '0%') { document.getElementById('loader-status').innerText = 'ERROR: app.js failed to load. Are you opening this from your Desktop? You must use a web server or GitHub Pages! Or check if app.js is missing.'; document.getElementById('loader-status').style.color = 'red'; } }, 3000);</script>
 <script type="module" src="app.js?v=2"></script>
 </body>
 </html>
