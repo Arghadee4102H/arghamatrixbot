@@ -1,9 +1,5 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, query, where, orderBy, limit, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
-import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
-
 /*================================================
-  ARGHA MATRIX — app.js
+  ARGHA MATRIX â€” app.js
   Version: 2.0
 ================================================*/
 
@@ -18,9 +14,9 @@ const firebaseConfig = {
   measurementId: "G-495V2R9R1X"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const rtdb = getDatabase(app);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const rtdb = firebase.database();
 
 // Globals
 window.currentUser = null;
@@ -48,7 +44,7 @@ try {
     });
 } catch (e) { console.warn('Telegram init error', e); }
 
-// ─── Loading Progress Controller ───
+// â”€â”€â”€ Loading Progress Controller â”€â”€â”€
 function setProgress(pct, statusText) {
     const fill = document.getElementById('progress-bar-fill');
     const glow = document.getElementById('progress-bar-glow');
@@ -80,15 +76,15 @@ function animateProgressTo(target, duration, statusText) {
 
 async function init() {
     try {
-        // ── Step 1: Identity check
-        await animateProgressTo(10, 400, '🔐 Checking identity...');
+        // â”€â”€ Step 1: Identity check
+        await animateProgressTo(10, 400, 'ðŸ” Checking identity...');
 
         const user = tg.initDataUnsafe?.user;
         const mockUser = { id: 123456789, username: "arghamatrix", first_name: "Argha", last_name: "Matrix" };
         const activeUser = user || mockUser;
 
         if (!user && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-            await animateProgressTo(100, 600, '⛔ Not in Telegram');
+            await animateProgressTo(100, 600, 'â›” Not in Telegram');
             const loadingScreen = document.getElementById('loading-screen');
             if (loadingScreen) loadingScreen.classList.add('hidden');
             const blockScreen = document.getElementById('telegram-block-screen');
@@ -96,7 +92,7 @@ async function init() {
             return;
         }
 
-        await animateProgressTo(25, 500, '📡 Connecting to Firebase...');
+        await animateProgressTo(25, 500, 'ðŸ“¡ Connecting to Firebase...');
 
         const telegramUser = {
             id: activeUser.id,
@@ -106,7 +102,7 @@ async function init() {
             photo_url: activeUser.photo_url || null
         };
 
-        // ── Step 2: Firebase auth with progress
+        // â”€â”€ Step 2: Firebase auth with progress
         await Promise.race([
             autoLoginOrRegister(telegramUser),
             new Promise((_, rej) => setTimeout(() => rej(new Error('Firebase timeout')), 10000))
@@ -120,22 +116,22 @@ async function init() {
             }
         });
 
-        await animateProgressTo(55, 600, '✅ Account loaded...');
+        await animateProgressTo(55, 600, 'âœ… Account loaded...');
 
-        // ── Step 3: Init modules
+        // â”€â”€ Step 3: Init modules
         try { initRouter(); } catch(e) { console.error(e); }
-        await animateProgressTo(70, 400, '🧠 Loading analysis engine...');
+        await animateProgressTo(70, 400, 'ðŸ§  Loading analysis engine...');
 
         try { renderHome(); } catch(e) { console.error(e); }
         try { initAnalysis(); } catch(e) { console.error(e); }
-        await animateProgressTo(85, 400, '📊 Preparing market data...');
+        await animateProgressTo(85, 400, 'ðŸ“Š Preparing market data...');
 
         try { initTopup(); } catch(e) { console.error(e); }
         try { initSupport(); } catch(e) { console.error(e); }
-        await animateProgressTo(98, 500, '⚡ Almost ready...');
+        await animateProgressTo(98, 500, 'âš¡ Almost ready...');
 
-        // ── Step 4: Hit 100% and show Enter Matrix button
-        await animateProgressTo(100, 300, '✅ System ready!');
+        // â”€â”€ Step 4: Hit 100% and show Enter Matrix button
+        await animateProgressTo(100, 300, 'âœ… System ready!');
 
         const enterBtn = document.getElementById('enter-matrix-btn');
         if (enterBtn) enterBtn.classList.remove('hidden');
@@ -159,7 +155,7 @@ async function init() {
     } catch (err) {
         console.error('init() failed:', err);
         // Display error visibly on screen
-        setProgress(100, '❌ Error: ' + err.message);
+        setProgress(100, 'âŒ Error: ' + err.message);
         
         // Failsafe: jump straight to app after 3s
         setTimeout(() => {
@@ -172,10 +168,10 @@ async function init() {
     }
 }
 
-// 3. Auth — Auto Login / Register
+// 3. Auth â€” Auto Login / Register
 async function autoLoginOrRegister(telegramUser) {
-    const userRef = doc(db, "users", String(telegramUser.id));
-    const userSnap = await getDoc(userRef);
+    const userRef = db.collection("users").doc(String(telegramUser.id));
+    const userSnap = await userRef.get();
     let isNewUser = false;
 
     if (!userSnap.exists()) {
@@ -188,12 +184,12 @@ async function autoLoginOrRegister(telegramUser) {
             joined_at: new Date().toISOString(),
             last_active: new Date().toISOString()
         };
-        await setDoc(userRef, newData);
+        await userRef.set(newData);
         window.currentUser = newData;
         isNewUser = true;
     } else {
         const existingData = userSnap.data();
-        await updateDoc(userRef, {
+        await userRef.update({
             username: telegramUser.username,
             photo_url: telegramUser.photo_url,
             last_active: new Date().toISOString()
@@ -207,9 +203,9 @@ async function autoLoginOrRegister(telegramUser) {
         else expDate = new Date(expDate);
 
         if (expDate < new Date()) {
-            await updateDoc(userRef, { premium_active: false });
+            await userRef.update({ premium_active: false });
             window.currentUser.premium_active = false;
-            showToast("⚠️ Your premium plan has expired.", "warning");
+            showToast("âš ï¸ Your premium plan has expired.", "warning");
         }
     }
 
@@ -224,7 +220,7 @@ function updateHeaderCredits() {
     document.getElementById('header-credits-val').innerText = formatNumber(window.currentUser.credits);
 }
 
-// 4. Router — Section Navigation
+// 4. Router â€” Section Navigation
 function initRouter() {
     document.querySelectorAll('.nav-item[data-target]').forEach(item => {
         item.addEventListener('click', () => {
@@ -305,9 +301,9 @@ async function renderHome() {
             const diffTime = expDate - new Date();
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             if (diffDays > 0) {
-                badge.innerText = `⭐ PREMIUM ACTIVE (${diffDays} days left)`;
+                badge.innerText = `â­ PREMIUM ACTIVE (${diffDays} days left)`;
             } else {
-                badge.innerText = `⭐ PREMIUM ACTIVE (Expires today)`;
+                badge.innerText = `â­ PREMIUM ACTIVE (Expires today)`;
             }
         }
     }
@@ -317,8 +313,8 @@ async function renderHome() {
     
     // Calculate Win Rate & P&L from history
     try {
-        const q = query(collection(db, "users", String(user.id), "history"), where("type", "==", "analysis"));
-        const snaps = await getDocs(q);
+        const q = db.collection("users").doc(String(user.id)).collection("history").where("type", "==", "analysis");
+        const snaps = await q.get();
         let wins = 0;
         let total = 0;
         snaps.forEach(doc => {
@@ -789,9 +785,9 @@ async function fetchLiveStats() {
     }
 }
 
-// ═══════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // 8. PROFESSIONAL ICT/SMC ANALYSIS ENGINE
-// ═══════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // --- Math Helpers ---
 function calcEMA(closes, period) {
@@ -874,8 +870,8 @@ function detectLiquidity(candles) {
 function getKillZone() {
     const h = new Date().getUTCHours();
     if (h >= 2 && h < 5) return { active: true, name: 'Asian Session' };
-    if (h >= 7 && h < 10) return { active: true, name: 'London Open KZ ⚡' };
-    if (h >= 12 && h < 15) return { active: true, name: 'NY Open KZ ⚡' };
+    if (h >= 7 && h < 10) return { active: true, name: 'London Open KZ âš¡' };
+    if (h >= 12 && h < 15) return { active: true, name: 'NY Open KZ âš¡' };
     if (h >= 19 && h < 21) return { active: true, name: 'Silver Bullet Window' };
     return { active: false, name: 'Off-Session' };
 }
@@ -929,7 +925,7 @@ async function fetchCandlesForAnalysis() {
 async function runAnalysis() {
     const user = window.currentUser;
     if (user.credits < 50 && !user.premium_active) {
-        showToast("❌ Insufficient credits. Top up to continue.", "error");
+        showToast("âŒ Insufficient credits. Top up to continue.", "error");
         navigateTo('topup');
         return;
     }
@@ -939,11 +935,11 @@ async function runAnalysis() {
     loader.classList.add('active');
     
     const steps = [
-        "📡 Fetching live OHLCV candles...",
-        "📊 Calculating RSI · MACD · EMA 20/50/200...",
-        "🏗️ Mapping BOS · MSS · Market Structure...",
-        "🎯 Detecting FVG · Order Block · Liquidity...",
-        "⚡ ICT Kill Zone · Fibonacci OTE · Signal..."
+        "ðŸ“¡ Fetching live OHLCV candles...",
+        "ðŸ“Š Calculating RSI Â· MACD Â· EMA 20/50/200...",
+        "ðŸ—ï¸ Mapping BOS Â· MSS Â· Market Structure...",
+        "ðŸŽ¯ Detecting FVG Â· Order Block Â· Liquidity...",
+        "âš¡ ICT Kill Zone Â· Fibonacci OTE Â· Signal..."
     ];
     
     for (let i = 0; i < steps.length; i++) {
@@ -1072,19 +1068,19 @@ async function runAnalysis() {
 
     // Handle Credit Deduction
     if (direction !== 'NEUTRAL' && !user.premium_active) {
-        await updateDoc(doc(db, "users", String(user.id)), { credits: increment(-50), total_analyses: increment(1) });
+        await db.collection("users").doc(String(user.id)).update({ credits: firebase.firestore.FieldValue.increment(-50), total_analyses: firebase.firestore.FieldValue.increment(1) });
         user.credits -= 50; user.total_analyses += 1;
         updateHeaderCredits();
-        await addDoc(collection(db, "users", String(user.id), "history"), {
+        await db.collection("users").doc(String(user.id)).collection("history").add({
             type: "analysis", amount: -50, score, symbol: currentSymbol.display, direction, timestamp: new Date().toISOString()
         });
-        document.getElementById('res-credit-info').innerText = `💎 50 credits deducted | Remaining: ${user.credits} cr`;
+        document.getElementById('res-credit-info').innerText = `ðŸ’Ž 50 credits deducted | Remaining: ${user.credits} cr`;
         document.getElementById('res-credit-info').className = "pill pill-green flex justify-center py-2 mb-3";
     } else if (direction === 'NEUTRAL') {
-        document.getElementById('res-credit-info').innerText = "⚠️ Neutral signal — No credits deducted.";
+        document.getElementById('res-credit-info').innerText = "âš ï¸ Neutral signal â€” No credits deducted.";
         document.getElementById('res-credit-info').className = "pill pill-gold flex justify-center py-2 mb-3";
     } else {
-        document.getElementById('res-credit-info').innerText = "✨ Premium — Unlimited analyses";
+        document.getElementById('res-credit-info').innerText = "âœ¨ Premium â€” Unlimited analyses";
         document.getElementById('res-credit-info').className = "pill pill-gold flex justify-center py-2 mb-3";
     }
 
@@ -1102,15 +1098,15 @@ function renderAnalysisResult(res) {
     
     const badge = document.getElementById('res-direction-badge');
     if (res.direction === "BUY") {
-        badge.innerText = "🟢 BUY SIGNAL";
+        badge.innerText = "ðŸŸ¢ BUY SIGNAL";
         badge.className = "pill pill-green mt-2";
         gauge.style.stroke = "var(--accent-green)";
     } else if (res.direction === "SELL") {
-        badge.innerText = "🔴 SELL SIGNAL";
+        badge.innerText = "ðŸ”´ SELL SIGNAL";
         badge.className = "pill pill-red mt-2";
         gauge.style.stroke = "var(--accent-red)";
     } else {
-        badge.innerText = "⚪ NEUTRAL";
+        badge.innerText = "âšª NEUTRAL";
         badge.className = "pill mt-2";
         gauge.style.stroke = "var(--text-muted)";
     }
@@ -1134,31 +1130,27 @@ function renderAnalysisResult(res) {
     document.getElementById('res-sl-pct').innerText = `-${slPct}% | Risk: 1 unit`;
 
     // SMC Details
-    const fix = currentCategory === 'crypto' ? 2 : 4;
     const msIcon = res.ms.structure === 'BULLISH' ? '🟢' : res.ms.structure === 'BEARISH' ? '🔴' : '⚪';
     document.getElementById('res-smc-details').innerHTML = `
         ${msIcon} <b>Market Structure:</b> ${res.ms.structure}<br>
-        ${res.ms.bos ? '✅' : '❌'} Break of Structure (BOS)<br>
-        ${res.ms.mss ? '✅' : '❌'} Market Structure Shift (MSS)<br>
-        ${res.fvg.present ? `✅ FVG: <b>${res.fvg.type}</b> gap detected` : '❌ No FVG in recent candles'}<br>
-        ${res.ob.present ? `✅ Order Block: <b>${res.ob.type}</b> OB active` : '❌ No Order Block nearby'}<br>
-        ${res.liq.buyside ? `⚡ Buy-Side Liq: $${res.liq.buyside.toFixed(fix)}` : ''} ${res.liq.sellside ? `⚡ Sell-Side Liq: $${res.liq.sellside.toFixed(fix)}` : ''}<br>
-        ${res.liq.swept ? '🎯 Liquidity Swept — reversal likely' : '🔄 Liquidity intact'}<br>
-        🕐 <b>Kill Zone:</b> ${res.kz.name} ${res.kz.active ? '✅ Active' : ''}<br>
-        📐 <b>Zone:</b> ${res.zone}<br>
-        ${res.inOTE ? '🎯 Price in Fibonacci OTE (62-79%)' : '📍 Outside OTE zone'}<br>
-        🕯️ <b>Pattern:</b> ${res.pattern}
+        ${res.ob.present ? `âœ… Order Block: <b>${res.ob.type}</b> OB active` : 'âŒ No Order Block nearby'}<br>
+        ${res.liq.buyside ? `âš¡ Buy-Side Liq: $${res.liq.buyside.toFixed(fix)}` : ''} ${res.liq.sellside ? `âš¡ Sell-Side Liq: $${res.liq.sellside.toFixed(fix)}` : ''}<br>
+        ${res.liq.swept ? 'ðŸŽ¯ Liquidity Swept â€” reversal likely' : 'ðŸ”„ Liquidity intact'}<br>
+        ðŸ• <b>Kill Zone:</b> ${res.kz.name} ${res.kz.active ? 'âœ… Active' : ''}<br>
+        ðŸ“ <b>Zone:</b> ${res.zone}<br>
+        ${res.inOTE ? 'ðŸŽ¯ Price in Fibonacci OTE (62-79%)' : 'ðŸ“ Outside OTE zone'}<br>
+        ðŸ•¯ï¸ <b>Pattern:</b> ${res.pattern}
     `;
     // Indicator details
-    const rsiZone = res.rsi < 30 ? 'Oversold 🟢' : res.rsi > 70 ? 'Overbought 🔴' : res.rsi > 50 ? 'Bullish zone' : 'Bearish zone';
-    const macdStr = res.macd > 0 ? '🟢 Bullish Crossover' : '🔴 Bearish Crossover';
-    const emaStack = res.ema20 > res.ema50 ? '🟢 Bullish (EMA20 > EMA50)' : '🔴 Bearish (EMA20 < EMA50)';
+    const rsiZone = res.rsi < 30 ? 'Oversold ðŸŸ¢' : res.rsi > 70 ? 'Overbought ðŸ”´' : res.rsi > 50 ? 'Bullish zone' : 'Bearish zone';
+    const macdStr = res.macd > 0 ? 'ðŸŸ¢ Bullish Crossover' : 'ðŸ”´ Bearish Crossover';
+    const emaStack = res.ema20 > res.ema50 ? 'ðŸŸ¢ Bullish (EMA20 > EMA50)' : 'ðŸ”´ Bearish (EMA20 < EMA50)';
     document.getElementById('res-ind-details').innerHTML = `
-        📊 <b>RSI (14):</b> ${res.rsi.toFixed(1)} — ${rsiZone}<br>
-        📈 <b>MACD:</b> ${macdStr}<br>
-        〰️ <b>EMA 20:</b> $${res.ema20.toFixed(fix)} | <b>EMA 50:</b> $${res.ema50.toFixed(fix)}<br>
-        📏 <b>ATR:</b> $${res.atr.toFixed(fix)} (volatility)<br>
-        🔼 <b>Swing High:</b> $${res.swingHigh.toFixed(fix)} | 🔽 <b>Swing Low:</b> $${res.swingLow.toFixed(fix)}
+        ðŸ“Š <b>RSI (14):</b> ${res.rsi.toFixed(1)} â€” ${rsiZone}<br>
+        ðŸ“ˆ <b>MACD:</b> ${macdStr}<br>
+        ã€°ï¸ <b>EMA 20:</b> $${res.ema20.toFixed(fix)} | <b>EMA 50:</b> $${res.ema50.toFixed(fix)}<br>
+        ðŸ“ <b>ATR:</b> $${res.atr.toFixed(fix)} (volatility)<br>
+        ðŸ”¼ <b>Swing High:</b> $${res.swingHigh.toFixed(fix)} | ðŸ”½ <b>Swing Low:</b> $${res.swingLow.toFixed(fix)}
     `;
 
     document.getElementById('analysis-result-backdrop').classList.add('open');
@@ -1181,18 +1173,18 @@ window.shareAnalysis = () => {
     const tp2 = "$" + res.tp2.toFixed(fix);
     const sl = "$" + res.sl.toFixed(fix);
     
-    const text = `🧠 *Argha Matrix Signal*\n\n` +
-                 `📈 *Pair:* ${res.symbol}\n` +
-                 `⚡ *Direction:* ${res.direction}\n` +
-                 `🎯 *Entry:* ${entry}\n` +
-                 `✅ *TP 1:* ${tp1}\n` +
-                 `🚀 *TP 2:* ${tp2}\n` +
-                 `🛑 *SL:* ${sl}\n\n` +
-                 `🔎 *Reasoning:*\n` +
-                 `Fair Value Gap: ✅ Present\n` +
-                 `Order Block: ✅ Detected\n` +
-                 `Break of Structure: ✅ Confirmed on ${res.timeframe}\n\n` +
-                 `🤖 @ArghaMatrix_bot`;
+    const text = `ðŸ§  *Argha Matrix Signal*\n\n` +
+                 `ðŸ“ˆ *Pair:* ${res.symbol}\n` +
+                 `âš¡ *Direction:* ${res.direction}\n` +
+                 `ðŸŽ¯ *Entry:* ${entry}\n` +
+                 `âœ… *TP 1:* ${tp1}\n` +
+                 `ðŸš€ *TP 2:* ${tp2}\n` +
+                 `ðŸ›‘ *SL:* ${sl}\n\n` +
+                 `ðŸ”Ž *Reasoning:*\n` +
+                 `Fair Value Gap: âœ… Present\n` +
+                 `Order Block: âœ… Detected\n` +
+                 `Break of Structure: âœ… Confirmed on ${res.timeframe}\n\n` +
+                 `ðŸ¤– @ArghaMatrix_bot`;
                  
     const url = `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`;
     window.Telegram.WebApp.openTelegramLink(url);
@@ -1250,7 +1242,7 @@ function showPaymentModal(itemData, type) {
     
     document.getElementById('btn-payment-confirm').onclick = async () => {
         try {
-            await addDoc(collection(db, "pending_transactions"), {
+            await db.collection("pending_transactions").add({
                 userId: window.currentUser.id,
                 username: window.currentUser.username,
                 orderId: orderId,
@@ -1262,7 +1254,7 @@ function showPaymentModal(itemData, type) {
             });
             
             // Add to User History as well
-            await addDoc(collection(db, "users", String(window.currentUser.id), "history"), {
+            await db.collection("users").doc(String(window.currentUser.id)).collection("history").add({
                 type: "pending_" + type,
                 amount: itemData.price,
                 item: itemData.name,
@@ -1271,9 +1263,9 @@ function showPaymentModal(itemData, type) {
             });
             
             document.getElementById('payment-modal').classList.remove('open');
-            showToast("✅ Payment submitted! Awaiting admin verification (up to 30 mins).");
+            showToast("âœ… Payment submitted! Awaiting admin verification (up to 30 mins).");
         } catch (e) {
-            showToast("❌ Failed to submit payment. Try again.", "error");
+            showToast("âŒ Failed to submit payment. Try again.", "error");
         }
     };
 }
@@ -1285,17 +1277,17 @@ async function watchAd() {
         if(typeof show_10916448 === 'function') {
             show_10916448().then(async () => {
                 // Reward user
-                await updateDoc(doc(db, "users", String(window.currentUser.id)), {
-                    credits: increment(5)
+                await db.collection("users").doc(String(window.currentUser.id)).update({
+                    credits: firebase.firestore.FieldValue.increment(5)
                 });
                 window.currentUser.credits += 5;
                 updateHeaderCredits();
                 
-                await addDoc(collection(db, "users", String(window.currentUser.id), "history"), {
+                await db.collection("users").doc(String(window.currentUser.id)).collection("history").add({
                     type: "ad_reward", amount: 5, timestamp: new Date().toISOString(), note: "Watched Monetag Ad"
                 });
                 
-                showToast("🎉 +5 Credits Earned!");
+                showToast("ðŸŽ‰ +5 Credits Earned!");
             }).catch(e => {
                 console.error(e);
                 showToast("Ad failed to load. Please try again later.", "warning");
@@ -1323,9 +1315,9 @@ async function loadHistory(tab) {
     container.innerHTML = `<div class="text-center text-muted" style="padding: 40px 0;">Loading history...</div>`;
     
     try {
-        const ref = collection(db, "users", String(window.currentUser.id), "history");
-        const q = query(ref, orderBy("timestamp", "desc"), limit(50));
-        const snaps = await getDocs(q);
+        const ref = db.collection("users").doc(String(window.currentUser.id)).collection("history");
+        const q = ref.orderBy("timestamp", "desc").limit(50);
+        const snaps = await q.get();
         
         let filtered = [];
         snaps.forEach(docSnap => {
@@ -1344,20 +1336,20 @@ async function loadHistory(tab) {
         let html = "";
         filtered.slice(0, 20).forEach(d => {
             const date = new Date(d.timestamp).toLocaleString();
-            let icon = "📝", title = "Transaction", color = "var(--text-primary)";
+            let icon = "ðŸ“", title = "Transaction", color = "var(--text-primary)";
             let rightSide = `<div class="font-bold" style="color:${d.amount > 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">${d.amount > 0 ? '+' : ''}${d.amount} cr</div>`;
             
-            if (d.type === 'analysis') { icon = "📊"; title = "Market Analysis: " + d.symbol; color = "var(--text-muted)"; }
-            else if (d.type === 'ad_reward') { icon = "📺"; title = "Ad Reward"; color = "var(--accent-green)"; }
+            if (d.type === 'analysis') { icon = "ðŸ“Š"; title = "Market Analysis: " + d.symbol; color = "var(--text-muted)"; }
+            else if (d.type === 'ad_reward') { icon = "ðŸ“º"; title = "Ad Reward"; color = "var(--accent-green)"; }
             else if (d.type.startsWith('pending_') || d.status) { 
                 if (d.status === 'success') {
-                    icon = "✅"; title = "Success: " + (d.item || "TopUp");
+                    icon = "âœ…"; title = "Success: " + (d.item || "TopUp");
                     rightSide = `<div class="pill pill-green" style="font-size:10px;">Success</div>`;
                 } else if (d.status === 'failed' || d.status === 'rejected') {
-                    icon = "❌"; title = "Failed: " + (d.item || "TopUp");
+                    icon = "âŒ"; title = "Failed: " + (d.item || "TopUp");
                     rightSide = `<div class="pill pill-red" style="font-size:10px;">Rejected</div>`;
                 } else {
-                    icon = "⏳"; title = "Pending: " + (d.item || "TopUp"); 
+                    icon = "â³"; title = "Pending: " + (d.item || "TopUp"); 
                     rightSide = `<div class="pill pill-gold" style="font-size:10px;">Pending</div>`; 
                 }
             }
@@ -1403,7 +1395,7 @@ function initSupport() {
         try {
             // 1. Save to Firebase Database
             try {
-                await addDoc(collection(db, "support_tickets"), {
+                await db.collection("support_tickets").add({
                     userId: window.currentUser?.id || "anonymous",
                     name: data.name,
                     username: data.username,
@@ -1420,7 +1412,7 @@ function initSupport() {
             try {
                 const botToken = "8253538797:AAHIFJJOMzh2PWIlwR3TujV79S-PBTYogcg";
                 const chatId = "-1002527868754";
-                const text = `🚨 *New Support Ticket*\n\n*Name:* ${data.name}\n*User:* ${data.username}\n*ID:* ${data.telegram_id}\n*Subject:* ${data.subject}\n\n*Description:*\n${data.description}`;
+                const text = `ðŸš¨ *New Support Ticket*\n\n*Name:* ${data.name}\n*User:* ${data.username}\n*ID:* ${data.telegram_id}\n*Subject:* ${data.subject}\n\n*Description:*\n${data.description}`;
                 
                 await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                     method: "POST",
@@ -1445,9 +1437,9 @@ function initSupport() {
             document.getElementById('support-form').classList.add('hidden');
             document.getElementById('support-success').classList.remove('hidden');
         } catch (err) {
-            showToast("❌ Submission failed. Try again.", "error");
+            showToast("âŒ Submission failed. Try again.", "error");
         } finally {
-            btn.innerText = "📤 Submit Ticket";
+            btn.innerText = "ðŸ“¤ Submit Ticket";
             btn.disabled = false;
         }
     };
@@ -1515,3 +1507,5 @@ if (document.readyState === 'complete') {
 } else {
     window.addEventListener('load', bootstrapApp);
 }
+
+
