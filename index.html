@@ -445,3 +445,586 @@
 <script type="module" src="app.js"></script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Argha Matrix â€” AI Trading Terminal</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+:root {
+  --bg-base:#060810;--bg-primary:#0a0c14;--bg-card:#131728;--bg-input:#0e1120;
+  --accent-teal:#00d4aa;--accent-blue:#3b82f6;--accent-gold:#f59e0b;
+  --accent-red:#ef4444;--accent-green:#26a69a;
+  --text-primary:#e8eaf0;--text-secondary:#8892a4;--text-muted:#4a5568;
+  --border:#1e2438;
+  --gradient-teal:linear-gradient(135deg,#00d4aa,#0099cc);
+  --gradient-brand:linear-gradient(135deg,#00d4aa,#3b82f6);
+  --font:'Inter',sans-serif;--font-hud:'Orbitron',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg-base);font-family:var(--font);color:var(--text-primary);font-size:14px;line-height:1.5}
+button{font-family:var(--font);cursor:pointer}
+input,textarea{font-family:var(--font)}
+
+/* UTILITY */
+.hidden{display:none!important}
+.flex{display:flex}.justify-center{justify-content:center}
+.py-2{padding:8px 0}.mb-3{margin-bottom:12px}.mt-2{margin-top:8px}
+.text-green{color:var(--accent-green)}.text-red{color:var(--accent-red)}.font-bold{font-weight:700}
+
+/* â•â•â• LOADING SCREEN â•â•â• */
+#loading-screen{
+  position:fixed;inset:0;z-index:9999;background:var(--bg-base);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  transition:opacity 0.5s ease;
+}
+.matrix-rain{
+  position:absolute;inset:0;pointer-events:none;opacity:0.06;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,170,0.5) 2px,rgba(0,212,170,0.5) 3px);
+  animation:rain 6s linear infinite;
+}
+@keyframes rain{from{background-position:0 0}to{background-position:0 200px}}
+.loader-content{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center;padding:24px 32px;width:100%;max-width:340px}
+.loader-logo-ring{position:relative;width:96px;height:96px;margin-bottom:20px}
+.logo-ring-outer{position:absolute;inset:0;border-radius:50%;border:3px solid transparent;border-top-color:var(--accent-teal);border-right-color:var(--accent-teal);animation:spin 1.2s linear infinite;box-shadow:0 0 20px rgba(0,212,170,0.35)}
+.logo-ring-inner{position:absolute;inset:14px;border-radius:50%;border:2px solid transparent;border-bottom-color:var(--accent-blue);border-left-color:var(--accent-blue);animation:spin 0.8s linear infinite reverse}
+.logo-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:36px;animation:pulse-icon 2s ease-in-out infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse-icon{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.loader-title{font-family:var(--font-hud);font-size:19px;font-weight:900;color:var(--accent-teal);letter-spacing:4px;margin-bottom:4px;text-shadow:0 0 20px rgba(0,212,170,0.6)}
+.loader-sub{font-size:11px;color:var(--text-muted);letter-spacing:1px;margin-bottom:26px}
+.progress-wrap{width:100%;margin-bottom:12px}
+.progress-bar-bg{width:100%;height:6px;background:rgba(255,255,255,0.06);border-radius:10px;overflow:visible;position:relative;margin-bottom:10px}
+.progress-bar-fill{height:100%;width:0%;background:var(--gradient-teal);border-radius:10px;transition:width 0.1s ease}
+.progress-bar-glow{position:absolute;top:-5px;height:16px;width:32px;background:radial-gradient(ellipse,rgba(0,212,170,0.9),transparent 70%);border-radius:50%;left:0%;transition:left 0.1s ease;transform:translateX(-50%);pointer-events:none}
+.progress-pct{font-family:var(--font-hud);font-size:30px;font-weight:900;color:#fff;text-shadow:0 0 20px rgba(0,212,170,0.5);letter-spacing:2px}
+.loader-status{font-size:12px;color:var(--text-muted);margin-bottom:22px;min-height:18px;letter-spacing:0.5px}
+.enter-btn{position:relative;overflow:hidden;background:var(--gradient-teal);color:#000;border:none;border-radius:12px;padding:0 32px;height:52px;font-family:var(--font-hud);font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer;box-shadow:0 0 30px rgba(0,212,170,0.5);animation:glow-btn 1.5s ease-in-out infinite alternate}
+.enter-btn-text{position:relative;z-index:1}
+.enter-btn-glow{position:absolute;inset:0;background:rgba(255,255,255,0.15);transform:translateX(-100%);transition:transform 0.4s ease}
+.enter-btn:hover .enter-btn-glow{transform:translateX(100%)}
+.enter-btn:active{transform:scale(0.97)}
+@keyframes glow-btn{from{box-shadow:0 0 20px rgba(0,212,170,0.4)}to{box-shadow:0 0 50px rgba(0,212,170,0.9)}}
+
+/* â•â•â• BLOCK SCREEN â•â•â• */
+#telegram-block-screen{position:fixed;inset:0;z-index:9998;background:var(--bg-base);display:flex;align-items:center;justify-content:center;text-align:center}
+.block-content{padding:32px}
+.block-content h2{font-size:22px;font-weight:700;margin-bottom:8px}
+.block-content p{color:var(--text-muted);font-size:13px}
+
+/* â•â•â• APP WRAPPER â•â•â• */
+#app-wrapper{display:flex;flex-direction:column;height:100dvh;height:100vh;overflow:hidden}
+
+/* Header */
+.app-header{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--bg-primary);border-bottom:1px solid var(--border);flex-shrink:0}
+.header-left{display:flex;align-items:center;gap:9px}
+.header-avatar{width:32px;height:32px;border-radius:50%;background:var(--gradient-teal);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#000;overflow:hidden;flex-shrink:0}
+.header-brand{font-size:14px;font-weight:700;color:var(--accent-teal);font-family:var(--font-hud)}
+.header-credits{display:flex;align-items:center;gap:4px;background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:13px;font-weight:600}
+.cr-label{font-size:10px;opacity:0.6}
+
+/* Ticker */
+.ticker-wrap{background:rgba(0,212,170,0.03);border-bottom:1px solid var(--border);padding:5px 0;overflow:hidden;flex-shrink:0}
+.ticker-inner{display:inline-flex;gap:40px;white-space:nowrap;animation:ticker 25s linear infinite}
+.ticker-item{display:inline-flex;gap:8px;font-size:12px}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* Main */
+.main-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:70px}
+.section{display:none;padding:14px 14px 20px}
+.section.active{display:block}
+.section-title{font-size:17px;font-weight:700;margin-bottom:14px;color:#fff}
+
+/* Bottom Nav */
+.bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--bg-card);border-top:1px solid var(--border);z-index:100;padding-bottom:env(safe-area-inset-bottom,0px)}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;cursor:pointer;gap:2px;color:var(--text-muted);transition:color 0.2s}
+.nav-item.active{color:var(--accent-teal)}
+.nav-icon{font-size:20px}.nav-label{font-size:10px;font-weight:500}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 18px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;border:none;transition:all 0.2s}
+.btn-primary{background:var(--gradient-teal);color:#000}
+.btn-primary:active{filter:brightness(0.9)}
+.btn-secondary{background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border)}
+.btn-outline{background:transparent;color:var(--accent-teal);border:1px solid var(--accent-teal)}
+.btn-sm{height:36px;padding:0 12px;font-size:13px}
+.btn-analyze{width:100%;height:50px;font-size:16px;font-weight:700;background:var(--gradient-teal);color:#000;border:none;border-radius:12px;cursor:pointer;margin-top:10px}
+.btn-icon{background:none;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;color:var(--text-muted);font-size:15px}
+
+/* Pills */
+.pill{flex-shrink:0;padding:5px 13px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);transition:all 0.2s}
+.pill.active{background:var(--accent-teal);color:#000;border-color:var(--accent-teal);font-weight:600}
+.pill.disabled{opacity:0.4;cursor:not-allowed}
+.pill-row{display:flex;gap:7px;overflow-x:auto;margin-bottom:10px;scrollbar-width:none}
+.pill-row::-webkit-scrollbar{display:none}
+.pill-green{background:rgba(38,166,154,0.15)!important;color:var(--accent-green)!important;border:1px solid var(--accent-green)!important}
+.pill-red{background:rgba(239,68,68,0.15)!important;color:var(--accent-red)!important;border:1px solid var(--accent-red)!important}
+.pill-gold{background:rgba(245,158,11,0.15)!important;color:var(--accent-gold)!important;border:1px solid var(--accent-gold)!important}
+
+/* Home */
+.profile-card{display:flex;align-items:center;gap:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px}
+.profile-avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;background:var(--bg-input);flex-shrink:0}
+.profile-name{font-size:15px;font-weight:700}
+.profile-username{font-size:12px;color:var(--accent-teal);margin-top:1px}
+.profile-id{font-size:11px;color:var(--text-muted);margin-top:1px}
+.badge{display:inline-block;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:600;margin-bottom:10px}
+.badge-premium{background:rgba(245,158,11,0.12);color:var(--accent-gold);border:1px solid rgba(245,158,11,0.4)}
+.badge-free{background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border)}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
+.stat-label{font-size:10px;color:var(--text-muted);margin-bottom:3px}
+.stat-value{font-size:19px;font-weight:700;color:var(--accent-teal)}
+.session-banner{display:flex;align-items:center;gap:10px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px}
+.session-dot{width:8px;height:8px;border-radius:50%;background:var(--accent-green);flex-shrink:0;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.session-name{font-size:13px;font-weight:600}
+.session-status{font-size:11px;color:var(--text-muted);margin-left:6px}
+.home-actions{display:flex;gap:8px}
+.home-actions .btn{flex:1}
+
+/* Analysis */
+.search-box{position:relative;margin-bottom:8px}
+.search-box input{width:100%;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:9px 13px;color:var(--text-primary);font-size:14px}
+.search-box input:focus{outline:none;border-color:var(--accent-teal)}
+.search-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:50;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;max-height:200px;overflow-y:auto}
+.search-result-item{padding:9px 13px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border)}
+.search-result-item:last-child{border-bottom:none}
+.search-result-item:active{background:var(--bg-input)}
+.symbol-pills-wrap{display:flex;gap:6px;overflow-x:auto;margin-bottom:8px;scrollbar-width:none}
+.symbol-pills-wrap::-webkit-scrollbar{display:none}
+.source-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.source-badge-wrap{display:flex;flex-direction:column;gap:1px}
+.badge-text{font-size:14px;font-weight:700;color:#fff}
+.badge-source{font-size:10px;color:var(--accent-teal)}
+.source-pills{display:flex;gap:5px}
+.price-bar{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+.live-price{font-size:22px;font-weight:800;color:#fff}
+.live-change{font-size:13px;font-weight:600}
+.tf-row{display:flex;gap:5px;overflow-x:auto;margin-bottom:8px;scrollbar-width:none}
+.tf-row::-webkit-scrollbar{display:none}
+.chart-container{border-radius:10px;overflow:hidden;border:1px solid var(--border);margin-bottom:8px;background:var(--bg-card)}
+.analysis-loader{display:none;align-items:center;padding:14px 0;font-size:13px;color:var(--text-muted)}
+.analysis-loader.active{display:flex}
+.loader-spinner-sm{width:16px;height:16px;border-radius:50%;border:2px solid rgba(0,212,170,0.2);border-top-color:var(--accent-teal);animation:spin 0.8s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px;flex-shrink:0}
+
+/* Modals */
+.modal-backdrop{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.75);backdrop-filter:blur(3px)}
+.modal-backdrop.open{display:flex;align-items:flex-end}
+#welcome-modal.open{display:flex;align-items:flex-end}
+#payment-modal.open{display:flex;align-items:flex-end}
+.modal-card{background:var(--bg-card);border-top-left-radius:20px;border-top-right-radius:20px;padding:18px 16px;width:100%;max-height:90dvh;overflow-y:auto;border-top:1px solid var(--border)}
+.welcome-features{display:flex;flex-direction:column;gap:8px}
+.wf-item{font-size:13px;color:var(--text-secondary);padding:6px 0;border-bottom:1px solid var(--border)}
+.wf-item:last-child{border-bottom:none}
+.analysis-modal{display:flex;flex-direction:column;gap:10px}
+.res-header-text{font-size:12px;color:var(--text-muted);text-align:center}
+.gauge-wrap{position:relative;width:130px;height:130px;margin:0 auto}
+.gauge-svg{width:100%;height:100%}
+.gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.gauge-score{font-size:28px;font-weight:800}
+.gauge-conf{font-size:10px;color:var(--text-muted);text-align:center}
+.trade-levels{display:flex;flex-direction:column;gap:1px;border-radius:10px;overflow:hidden}
+.level-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;font-size:13px}
+.level-tp{background:rgba(38,166,154,0.08)}
+.level-sl{background:rgba(239,68,68,0.08)}
+.level-entry{background:rgba(245,158,11,0.1);font-weight:700}
+.detail-section{background:var(--bg-input);border-radius:10px;padding:12px}
+.detail-title{font-size:11px;font-weight:700;color:var(--accent-teal);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.5px}
+.detail-body{font-size:12px;color:var(--text-secondary);line-height:1.75}
+.modal-actions{display:flex;gap:7px}
+.modal-actions .btn{flex:1;height:40px;font-size:13px}
+.wallet-address-box{background:var(--bg-input);border-radius:8px;padding:10px 12px}
+
+/* Sheet */
+.sheet-backdrop{display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,0.6)}
+.sheet-backdrop.open{display:block}
+.bottom-sheet{display:none;position:fixed;bottom:0;left:0;right:0;z-index:410;background:var(--bg-card);border-top:1px solid var(--border);border-radius:20px 20px 0 0;padding:10px 16px 36px}
+.bottom-sheet.open{display:block}
+.sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px}
+.sheet-title{font-size:15px;font-weight:700;margin-bottom:10px}
+.more-item{padding:14px 0;font-size:15px;border-bottom:1px solid var(--border);cursor:pointer;color:var(--text-primary)}
+.more-item:last-child{border-bottom:none}
+.more-item:active{color:var(--accent-teal)}
+
+/* Fullscreen */
+.fullscreen-modal{display:none;position:fixed;inset:0;z-index:600;background:var(--bg-base);flex-direction:column}
+.fullscreen-modal.open{display:flex}
+.fs-close-btn{background:var(--bg-card);border:none;border-bottom:1px solid var(--border);color:var(--text-primary);padding:12px 16px;font-size:14px;cursor:pointer;text-align:left;flex-shrink:0}
+
+/* Toast */
+#toast-container{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:7px;width:92%;max-width:360px;pointer-events:none}
+.toast{padding:11px 14px;border-radius:10px;font-size:13px;font-weight:500;background:var(--bg-card);border:1px solid var(--border);box-shadow:0 4px 24px rgba(0,0,0,0.5);animation:slideDown 0.25s ease;pointer-events:auto}
+.toast.success{border-color:var(--accent-green);color:var(--accent-green)}
+.toast.error{border-color:var(--accent-red);color:var(--accent-red)}
+@keyframes slideDown{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* TopUp */
+.topup-tabs{display:flex;gap:7px;margin-bottom:14px}
+.tab-pill{flex:1;padding:8px 4px;border-radius:8px;font-size:12px;font-weight:600;text-align:center;cursor:pointer;background:var(--bg-card);border:1px solid var(--border);color:var(--text-muted)}
+.tab-pill.active{background:var(--accent-teal);color:#000;border-color:var(--accent-teal)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.plan-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:8px}
+.plan-name{font-size:14px;font-weight:700;margin-bottom:4px}
+.plan-price{font-size:22px;font-weight:800;color:var(--accent-gold);margin-bottom:3px}
+.plan-desc{font-size:12px;color:var(--text-muted);margin-bottom:10px}
+.ads-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px 16px;text-align:center}
+.ads-card h3{font-size:17px;font-weight:700;margin-bottom:7px}
+.ads-card p{font-size:13px;color:var(--text-muted);line-height:1.6}
+
+/* History */
+.history-list{display:flex;flex-direction:column;gap:8px}
+.history-item{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px}
+.history-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:3px}
+.history-symbol{font-weight:700;font-size:14px}
+.history-status-pending{color:var(--accent-gold);font-size:11px;font-weight:600}
+.history-status-success{color:var(--accent-green);font-size:11px;font-weight:600}
+.history-status-rejected{color:var(--accent-red);font-size:11px;font-weight:600}
+.empty-state{text-align:center;padding:36px 20px;color:var(--text-muted);font-size:14px}
+
+/* Support */
+#support-form .form-group{margin-bottom:12px}
+#support-form label{font-size:12px;font-weight:600;display:block;margin-bottom:4px;color:var(--text-secondary)}
+.form-input{width:100%;background:var(--bg-card);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text-primary);font-size:14px}
+.form-input:focus{outline:none;border-color:var(--accent-teal)}
+textarea.form-input{resize:none}
+.success-banner{background:rgba(38,166,154,0.08);border:1px solid var(--accent-green);border-radius:10px;padding:12px;color:var(--accent-green);font-size:13px;text-align:center;margin-top:12px}
+
+/* Terms */
+.terms-body{font-size:13px;color:var(--text-secondary);line-height:1.8}
+.terms-body h4{color:#fff;font-size:13px;font-weight:700;margin:14px 0 4px}
+.terms-body p{margin-bottom:6px}
+
+</style>
+  <script src="https://s3.tradingview.com/tv.js" defer></script>
+  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js" defer></script>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loading-screen">
+  <div class="matrix-rain"></div>
+  <div class="loader-content">
+    <div class="loader-logo-ring">
+      <div class="logo-ring-outer"></div>
+      <div class="logo-ring-inner"></div>
+      <div class="logo-icon">âš¡</div>
+    </div>
+    <div class="loader-title">ARGHA MATRIX</div>
+    <div class="loader-sub">AI Trading Terminal v2.0</div>
+    <div class="progress-wrap">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-bar-fill"></div>
+        <div class="progress-bar-glow" id="progress-bar-glow"></div>
+      </div>
+      <div class="progress-pct" id="progress-pct">0%</div>
+    </div>
+    <div class="loader-status" id="loader-status">Initializing systems...</div>
+    <button id="enter-matrix-btn" class="enter-btn hidden" onclick="window._enterMatrix && window._enterMatrix()">
+      <span class="enter-btn-text">âš¡ ENTER MATRIX</span>
+      <div class="enter-btn-glow"></div>
+    </button>
+  </div>
+</div>
+
+<!-- TELEGRAM BLOCK SCREEN -->
+<div id="telegram-block-screen" class="hidden">
+  <div class="block-content">
+    <div style="font-size:64px;margin-bottom:16px;">ðŸ¤–</div>
+    <h2>Open in Telegram</h2>
+    <p>This app only works inside Telegram. Open it via @ArghaMatrix_bot.</p>
+    <a href="https://t.me/ArghaMatrix_bot" class="btn btn-primary" style="margin-top:20px;display:inline-flex;">Open Bot â†’</a>
+  </div>
+</div>
+
+<!-- WELCOME MODAL -->
+<div id="welcome-modal" class="modal-backdrop">
+  <div class="modal-card">
+    <div style="font-size:48px;text-align:center;margin-bottom:8px;">ðŸŽ‰</div>
+    <h2 style="text-align:center;margin-bottom:8px;font-size:18px;">Welcome to Argha Matrix!</h2>
+    <p style="text-align:center;color:var(--text-muted);font-size:13px;margin-bottom:18px;">You've received <b style="color:var(--accent-teal)">200 free credits</b>. Professional ICT/SMC analysis at your fingertips.</p>
+    <div class="welcome-features">
+      <div class="wf-item">âœ… Real-time ICT/SMC Analysis Engine</div>
+      <div class="wf-item">âœ… Crypto, Forex, Metals &amp; Stocks</div>
+      <div class="wf-item">âœ… RSI Â· MACD Â· EMA Â· ATR Â· FVG Â· OB</div>
+      <div class="wf-item">âœ… Kill Zone &amp; Session Timing</div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:14px;" onclick="document.getElementById('welcome-modal').classList.remove('open')">ðŸš€ Start Trading</button>
+  </div>
+</div>
+
+<!-- ANALYSIS RESULT MODAL -->
+<div id="analysis-result-backdrop" class="modal-backdrop" onclick="closeAnalysisModal()"></div>
+<div id="analysis-result-modal" class="modal-card analysis-modal">
+  <div id="res-credit-info" class="pill pill-gold flex justify-center py-2 mb-3">ðŸ’Ž Analysis complete</div>
+  <div id="res-header" class="res-header-text">BTC/USDT | 15m</div>
+  <div class="gauge-wrap">
+    <svg viewBox="0 0 120 120" class="gauge-svg">
+      <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10"/>
+      <circle id="res-gauge-path" cx="60" cy="60" r="50" fill="none" stroke="var(--accent-green)"
+        stroke-width="10" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="377"
+        transform="rotate(-90 60 60)" style="transition:stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1);"/>
+    </svg>
+    <div class="gauge-center">
+      <div id="res-score-val" class="gauge-score">--</div>
+      <div id="res-confidence" class="gauge-conf">--</div>
+    </div>
+  </div>
+  <div id="res-direction-badge" class="pill mt-2" style="text-align:center;display:block;">âšª NEUTRAL</div>
+  <div class="trade-levels">
+    <div class="level-row level-tp"><span>TP 2</span><span id="res-tp2">--</span><span id="res-tp2-pct" class="text-green font-bold">--</span></div>
+    <div class="level-row level-tp"><span>TP 1</span><span id="res-tp1">--</span><span id="res-tp1-pct" class="text-green font-bold">--</span></div>
+    <div class="level-row level-entry"><span>ENTRY</span><span id="res-entry">--</span><span></span></div>
+    <div class="level-row level-sl"><span>SL</span><span id="res-sl">--</span><span id="res-sl-pct" class="text-red font-bold">--</span></div>
+  </div>
+  <div class="detail-section">
+    <div class="detail-title">ðŸ—ï¸ SMC / ICT Analysis</div>
+    <div id="res-smc-details" class="detail-body">â€”</div>
+  </div>
+  <div class="detail-section">
+    <div class="detail-title">ðŸ“Š Technical Indicators</div>
+    <div id="res-ind-details" class="detail-body">â€”</div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn btn-secondary" onclick="closeAnalysisModal()">Done</button>
+    <button class="btn btn-outline" onclick="runAnalysis()">ðŸ”„ Re-Analyze</button>
+    <button class="btn btn-primary" onclick="shareAnalysis()">ðŸ“¤ Share</button>
+  </div>
+</div>
+
+<!-- PAYMENT MODAL -->
+<div id="payment-modal" class="modal-backdrop">
+  <div class="modal-card">
+    <h3 id="pay-plan-name" style="text-align:center;margin-bottom:4px;">Plan Name</h3>
+    <p id="pay-plan-price" style="text-align:center;color:var(--accent-gold);font-size:22px;font-weight:800;margin-bottom:14px;">$0 USDT</p>
+    <p style="text-align:center;font-size:12px;color:var(--text-muted);margin-bottom:12px;">Scan QR or copy the wallet address below</p>
+    <div id="qr-container" style="display:flex;justify-content:center;margin-bottom:12px;"></div>
+    <div class="wallet-address-box">
+      <p style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">USDT (BEP-20 / TRC-20):</p>
+      <code style="font-size:11px;word-break:break-all;color:var(--text-primary);">0xYourWalletAddressHere</code>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin:10px 0;">Order ID: <b id="pay-order-id" style="color:var(--accent-teal);">--</b></p>
+    <button id="btn-payment-confirm" class="btn btn-primary" style="width:100%;margin-bottom:8px;">âœ… I've Paid â€” Notify Admin</button>
+    <button class="btn btn-secondary" style="width:100%;" onclick="document.getElementById('payment-modal').classList.remove('open')">Cancel</button>
+  </div>
+</div>
+
+<!-- CHART FULLSCREEN -->
+<div id="chart-fullscreen-modal" class="fullscreen-modal">
+  <button class="fs-close-btn" onclick="document.getElementById('chart-fullscreen-modal').classList.remove('open')">âœ• Close Fullscreen</button>
+  <div id="fs_chart_container" style="width:100%;height:calc(100vh - 48px);"></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast-container"></div>
+
+<!-- MORE BOTTOM SHEET -->
+<div id="more-sheet-backdrop" class="sheet-backdrop"></div>
+<div id="more-sheet" class="bottom-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">More</div>
+  <div class="more-item" data-target="history">ðŸ“œ History</div>
+  <div class="more-item" data-target="support">ðŸ“‹ Support</div>
+  <div class="more-item" data-target="terms">ðŸ“„ Terms &amp; Conditions</div>
+</div>
+
+<!-- APP WRAPPER -->
+<div id="app-wrapper" class="hidden">
+
+  <header class="app-header">
+    <div class="header-left">
+      <div id="header-avatar" class="header-avatar">AM</div>
+      <span class="header-brand">Argha Matrix</span>
+    </div>
+    <div class="header-right">
+      <div class="header-credits">
+        <span>ðŸ’Ž</span>
+        <span id="header-credits-val">0</span>
+        <span class="cr-label">cr</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="ticker-wrap">
+    <div id="ticker-content" class="ticker-inner">Loading market data...</div>
+  </div>
+
+  <main id="main-content" class="main-content">
+
+    <!-- HOME -->
+    <section id="section-home" class="section active">
+      <div class="profile-card">
+        <img id="home-avatar" class="profile-avatar" src="" alt="Avatar" onerror="this.style.display='none'">
+        <div class="profile-info">
+          <div id="home-display-name" class="profile-name">Loading...</div>
+          <div id="home-username" class="profile-username">@username</div>
+          <div id="home-user-id" class="profile-id">ID: #------</div>
+        </div>
+      </div>
+      <div id="home-premium-badge" class="badge badge-premium hidden">â­ PREMIUM ACTIVE</div>
+      <div id="home-free-badge" class="badge badge-free">ðŸ†“ FREE PLAN</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">ðŸ’Ž Credits</div><div id="home-stat-credits" class="stat-value">0</div></div>
+        <div class="stat-card"><div class="stat-label">ðŸ“Š Analyses</div><div id="home-stat-analyses" class="stat-value">0</div></div>
+        <div class="stat-card"><div class="stat-label">ðŸ† Win Rate</div><div id="home-stat-winrate" class="stat-value">0%</div></div>
+      </div>
+      <div class="session-banner">
+        <div class="session-dot"></div>
+        <div><span id="session-name" class="session-name">Loading...</span><span id="session-status" class="session-status">Active</span></div>
+      </div>
+      <div class="home-actions">
+        <button id="btn-home-analyze" class="btn btn-primary">ðŸ“Š Analyze Market</button>
+        <button id="btn-home-topup" class="btn btn-secondary">ðŸ’Ž Top Up</button>
+      </div>
+    </section>
+
+    <!-- ANALYSIS -->
+    <section id="section-analysis" class="section">
+      <div id="category-pills" class="pill-row">
+        <div class="pill active" data-cat="crypto">ðŸª™ Crypto</div>
+        <div class="pill" data-cat="forex">ðŸ’± Forex</div>
+        <div class="pill" data-cat="metals">ðŸ¥‡ Metals</div>
+        <div class="pill" data-cat="stocks">ðŸ“ˆ Stocks</div>
+      </div>
+      <div class="search-box">
+        <input id="market-search" type="search" placeholder="ðŸ” Search symbol (BTC, GOLD, EUR/USD...)">
+        <div id="search-results" class="search-dropdown hidden"></div>
+      </div>
+      <div id="symbol-pills" class="symbol-pills-wrap"></div>
+      <div class="source-row">
+        <div class="source-badge-wrap">
+          <span id="chart-symbol-badge" class="badge-text">BTC/USDT</span>
+          <span id="chart-source-badge" class="badge-source">TRADINGVIEW</span>
+        </div>
+        <div class="source-pills">
+          <div class="pill active" data-src="tv">TV</div>
+          <div id="src-binance" class="pill disabled" data-src="binance">Binance</div>
+          <div id="src-oanda" class="pill disabled" data-src="oanda">OANDA</div>
+        </div>
+      </div>
+      <div class="price-bar">
+        <span id="live-price" class="live-price">--</span>
+        <span id="live-change" class="live-change">--%</span>
+        <button id="btn-fullscreen" class="btn-icon">â›¶</button>
+      </div>
+      <div class="tf-row">
+        <div class="pill" data-tf="1m">1m</div>
+        <div class="pill" data-tf="5m">5m</div>
+        <div class="pill active" data-tf="15m">15m</div>
+        <div class="pill" data-tf="30m">30m</div>
+        <div class="pill" data-tf="1h">1H</div>
+        <div class="pill" data-tf="4h">4H</div>
+        <div class="pill" data-tf="1d">1D</div>
+        <div class="pill" data-tf="1w">1W</div>
+      </div>
+      <div class="chart-container">
+        <div id="tv_chart_container" style="width:100%;height:380px;"></div>
+        <div id="lw_chart_container" class="hidden" style="width:100%;height:380px;"></div>
+      </div>
+      <div id="analysis-loader" class="analysis-loader">
+        <div class="loader-spinner-sm"></div>
+        <span id="analysis-step-text">Running analysis...</span>
+      </div>
+      <button id="btn-analyze-action" class="btn btn-analyze">âš¡ Analyze Now</button>
+    </section>
+
+    <!-- TOPUP -->
+    <section id="section-topup" class="section">
+      <div class="section-title">ðŸ’Ž Top Up Credits</div>
+      <div class="topup-tabs">
+        <div class="tab-pill active" data-tab="premium">â­ Premium</div>
+        <div class="tab-pill" data-tab="credits">ðŸ’Ž Credits</div>
+        <div class="tab-pill" data-tab="ads">ðŸ“º Ads</div>
+      </div>
+      <div id="tab-premium" class="tab-content active">
+        <div class="plan-card" data-pack="premium-weekly">
+          <div class="plan-name">â­ 1 Week Premium</div>
+          <div class="plan-price">$5 USDT</div>
+          <div class="plan-desc">Unlimited analyses for 7 days</div>
+          <button class="btn btn-primary btn-sm">Buy Now</button>
+        </div>
+        <div class="plan-card" data-pack="premium-monthly">
+          <div class="plan-name">â­ 1 Month Premium</div>
+          <div class="plan-price">$15 USDT</div>
+          <div class="plan-desc">Unlimited analyses for 30 days</div>
+          <button class="btn btn-primary btn-sm">Buy Now</button>
+        </div>
+      </div>
+      <div id="tab-credits" class="tab-content hidden">
+        <div class="plan-card" data-pack="credits-500">
+          <div class="plan-name">ðŸ’Ž 500 Credits</div>
+          <div class="plan-price">$3 USDT</div>
+          <div class="plan-desc">10 full analyses</div>
+          <button class="btn btn-primary btn-sm">Buy Now</button>
+        </div>
+        <div class="plan-card" data-pack="credits-1500">
+          <div class="plan-name">ðŸ’Ž 1500 Credits</div>
+          <div class="plan-price">$7 USDT</div>
+          <div class="plan-desc">30 full analyses â€” Best Value!</div>
+          <button class="btn btn-primary btn-sm">Buy Now</button>
+        </div>
+      </div>
+      <div id="tab-ads" class="tab-content hidden">
+        <div class="ads-card">
+          <div style="font-size:42px;margin-bottom:10px;">ðŸ“º</div>
+          <h3>Watch &amp; Earn Free Credits</h3>
+          <p>Watch a 60-second ad â†’ earn <b>+5 free credits</b>.<br>Limit: 10 ads/day = 50 credits FREE</p>
+          <button id="btn-watch-ad" class="btn btn-primary" style="margin-top:14px;">â–¶ Watch Ad Now</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="section-history" class="section">
+      <div class="section-title">ðŸ“œ Transaction History</div>
+      <div id="history-container" class="history-list">
+        <div class="empty-state">Loading history...</div>
+      </div>
+    </section>
+
+    <!-- SUPPORT -->
+    <section id="section-support" class="section">
+      <div class="section-title">ðŸ“‹ Support</div>
+      <form id="support-form">
+        <div class="form-group"><label>Your Name</label><input id="support-name" type="text" placeholder="Enter your name" class="form-input"></div>
+        <div class="form-group"><label>Telegram Username</label><input id="support-username" type="text" placeholder="@username" class="form-input"></div>
+        <div class="form-group"><label>Subject</label><input id="support-subject" type="text" placeholder="Issue subject" class="form-input"></div>
+        <div class="form-group"><label>Description</label><textarea id="support-desc" rows="4" placeholder="Describe your issue..." class="form-input"></textarea></div>
+        <button id="btn-submit-support" type="submit" class="btn btn-primary" style="width:100%">ðŸ“¨ Submit Ticket</button>
+      </form>
+      <div id="support-success" class="hidden success-banner">âœ… Ticket submitted! We'll reply within 24 hours.</div>
+    </section>
+
+    <!-- TERMS -->
+    <section id="section-terms" class="section">
+      <div class="section-title">ðŸ“„ Terms &amp; Conditions</div>
+      <div class="terms-body">
+        <h4>1. Educational Purpose Only</h4><p>All signals are for EDUCATIONAL use only. NOT financial advice.</p>
+        <h4>2. Trade at Your Own Risk</h4><p>All trading decisions are your own responsibility.</p>
+        <h4>3. No Refund Policy</h4><p>All purchases are final and non-refundable.</p>
+        <h4>4. Accuracy Disclaimer</h4><p>The AI Trade Score is mathematical. Past scores do NOT guarantee future results.</p>
+        <h4>5. Data Usage</h4><p>We store only your Telegram ID, username, and transaction history.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav">
+    <div class="nav-item active" data-target="home"><span class="nav-icon">ðŸ </span><span class="nav-label">Home</span></div>
+    <div class="nav-item" data-target="analysis"><span class="nav-icon">ðŸ“Š</span><span class="nav-label">Analyze</span></div>
+    <div class="nav-item" data-target="topup"><span class="nav-icon">ðŸ’Ž</span><span class="nav-label">TopUp</span></div>
+    <div class="nav-item" id="btn-more"><span class="nav-icon">â˜°</span><span class="nav-label">More</span></div>
+  </nav>
+
+</div>
+
+<script type="module" src="app.js?v=2"></script>
+</body>
+</html>
+
