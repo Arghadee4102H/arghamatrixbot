@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Argha Matrix — AI Trading Terminal</title>
+  <meta name="description" content="Argha Matrix AI Trading Analysis Bot — SMC, ICT, RSI, MACD signals for Crypto, Forex, Metals & Stocks.">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="webapp.css">
+  <!-- TradingView Widget -->
+  <script src="https://s3.tradingview.com/tv.js" defer></script>
+  <!-- LightweightCharts -->
+  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js" defer></script>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- LOADING SCREEN -->
+<!-- ============================================================ -->
+<div id="loading-screen">
+  <div class="loader-content">
+    <div class="loader-logo">⚡</div>
+    <div class="loader-title">ARGHA MATRIX</div>
+    <div class="loader-sub">AI Trading Terminal</div>
+    <div class="loader-spinner"></div>
+    <div class="loader-status">Initializing...</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TELEGRAM BLOCK SCREEN (shown if opened outside Telegram) -->
+<!-- ============================================================ -->
+<div id="telegram-block-screen" class="hidden">
+  <div class="block-content">
+    <div style="font-size:64px;">🤖</div>
+    <h2>Open in Telegram</h2>
+    <p>This app only works inside Telegram. Please open it via the bot.</p>
+    <a href="https://t.me/ArghaMatrix_bot" class="btn btn-primary">Open @ArghaMatrix_bot</a>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- WELCOME MODAL (New User) -->
+<!-- ============================================================ -->
+<div id="welcome-modal" class="modal-backdrop">
+  <div class="modal-card">
+    <div style="font-size:48px;text-align:center;">🎉</div>
+    <h2 style="text-align:center;margin:12px 0 8px;">Welcome to Argha Matrix!</h2>
+    <p style="text-align:center;color:var(--text-muted);font-size:14px;margin-bottom:20px;">You've received 200 free credits to get started. Analyze any market with professional ICT/SMC precision.</p>
+    <ul style="list-style:none;padding:0;margin-bottom:20px;">
+      <li style="padding:6px 0;font-size:13px;">✅ Real-time ICT/SMC Analysis Engine</li>
+      <li style="padding:6px 0;font-size:13px;">✅ Crypto, Forex, Metals & Stocks</li>
+      <li style="padding:6px 0;font-size:13px;">✅ RSI, MACD, EMA, ATR indicators</li>
+      <li style="padding:6px 0;font-size:13px;">✅ Fair Value Gap & Order Block detection</li>
+    </ul>
+    <button class="btn btn-primary" style="width:100%" onclick="document.getElementById('welcome-modal').classList.remove('open')">🚀 Start Trading</button>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ANALYSIS RESULT MODAL -->
+<!-- ============================================================ -->
+<div id="analysis-result-backdrop" class="modal-backdrop" onclick="closeAnalysisModal()"></div>
+<div id="analysis-result-modal" class="modal-card analysis-modal">
+  <div id="res-credit-info" class="pill pill-gold flex justify-center py-2 mb-3">💎 50 credits deducted</div>
+  <div id="res-header" class="res-header-text">BTC/USDT | 15m | TV</div>
+
+  <!-- Gauge -->
+  <div class="gauge-wrap">
+    <svg viewBox="0 0 120 120" class="gauge-svg">
+      <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="10"/>
+      <circle id="res-gauge-path" cx="60" cy="60" r="50" fill="none" stroke="var(--accent-green)"
+        stroke-width="10" stroke-linecap="round"
+        stroke-dasharray="377" stroke-dashoffset="377"
+        transform="rotate(-90 60 60)" style="transition:stroke-dashoffset 1s ease;"/>
+    </svg>
+    <div class="gauge-center">
+      <div id="res-score-val" class="gauge-score">--</div>
+      <div id="res-confidence" class="gauge-conf">--</div>
+    </div>
+  </div>
+
+  <div id="res-direction-badge" class="pill mt-2">⚪ NEUTRAL</div>
+
+  <!-- Trade Levels -->
+  <div class="trade-levels">
+    <div class="level-row level-tp">
+      <span>TP 2</span>
+      <span id="res-tp2">--</span>
+      <span id="res-tp2-pct" class="text-green">--</span>
+    </div>
+    <div class="level-row level-tp">
+      <span>TP 1</span>
+      <span id="res-tp1">--</span>
+      <span id="res-tp1-pct" class="text-green">--</span>
+    </div>
+    <div class="level-row level-entry">
+      <span>ENTRY</span>
+      <span id="res-entry">--</span>
+      <span></span>
+    </div>
+    <div class="level-row level-sl">
+      <span>SL</span>
+      <span id="res-sl">--</span>
+      <span id="res-sl-pct" class="text-red">--</span>
+    </div>
+  </div>
+
+  <!-- SMC Details -->
+  <div class="detail-section">
+    <div class="detail-title">🏗️ SMC / ICT Analysis</div>
+    <div id="res-smc-details" class="detail-body">—</div>
+  </div>
+
+  <!-- Indicator Details -->
+  <div class="detail-section">
+    <div class="detail-title">📊 Indicators</div>
+    <div id="res-ind-details" class="detail-body">—</div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="modal-actions">
+    <button class="btn btn-secondary" onclick="closeAnalysisModal()">Done</button>
+    <button class="btn btn-outline" onclick="runAnalysis()">🔄 Re-Analyze</button>
+    <button class="btn btn-primary" onclick="shareAnalysis()">📤 Share</button>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PAYMENT MODAL -->
+<!-- ============================================================ -->
+<div id="payment-modal" class="modal-backdrop">
+  <div class="modal-card">
+    <h3 id="pay-plan-name" style="text-align:center;margin-bottom:4px;">Plan Name</h3>
+    <p id="pay-plan-price" style="text-align:center;color:var(--accent-gold);font-size:20px;font-weight:700;margin-bottom:16px;">$0 USDT</p>
+    <p style="text-align:center;font-size:13px;color:var(--text-muted);margin-bottom:12px;">Scan the QR code or copy address below</p>
+    <div id="qr-container" style="display:flex;justify-content:center;margin-bottom:12px;"></div>
+    <div class="wallet-address-box">
+      <p style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">USDT (BEP-20) Wallet Address:</p>
+      <code style="font-size:12px;word-break:break-all;">0xYourWalletAddressHere</code>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin:12px 0;">Order ID: <b id="pay-order-id">--</b></p>
+    <button id="btn-payment-confirm" class="btn btn-primary" style="width:100%;margin-bottom:8px;">✅ I've Paid — Notify Admin</button>
+    <button class="btn btn-secondary" style="width:100%" onclick="document.getElementById('payment-modal').classList.remove('open')">Cancel</button>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- CHART FULLSCREEN MODAL -->
+<!-- ============================================================ -->
+<div id="chart-fullscreen-modal" class="fullscreen-modal">
+  <button class="fs-close-btn" onclick="document.getElementById('chart-fullscreen-modal').classList.remove('open')">✕ Close</button>
+  <div id="fs_chart_container" style="width:100%;height:calc(100vh - 50px);"></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TOAST CONTAINER -->
+<!-- ============================================================ -->
+<div id="toast-container"></div>
+
+<!-- ============================================================ -->
+<!-- MORE SHEET (Bottom Sheet) -->
+<!-- ============================================================ -->
+<div id="more-sheet-backdrop" class="sheet-backdrop"></div>
+<div id="more-sheet" class="bottom-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">More Options</div>
+  <div class="more-item" data-target="history">📜 History</div>
+  <div class="more-item" data-target="support">📋 Support</div>
+  <div class="more-item" data-target="terms">📄 Terms & Conditions</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MAIN APP WRAPPER -->
+<!-- ============================================================ -->
+<div id="app-wrapper" class="hidden">
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div id="header-avatar" class="header-avatar">AM</div>
+      <span class="header-brand">Argha Matrix</span>
+    </div>
+    <div class="header-right">
+      <div class="header-credits">
+        <span>💎</span>
+        <span id="header-credits-val">0</span>
+        <span style="font-size:11px;opacity:0.7">cr</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Live Market Ticker -->
+  <div class="ticker-wrap">
+    <div id="ticker-content" class="ticker-inner">Loading market data...</div>
+  </div>
+
+  <!-- Main Content Area -->
+  <main id="main-content" class="main-content">
+
+    <!-- ======== HOME SECTION ======== -->
+    <section id="section-home" class="section active">
+      <div class="profile-card">
+        <img id="home-avatar" class="profile-avatar" src="" alt="Avatar">
+        <div class="profile-info">
+          <div id="home-display-name" class="profile-name">Loading...</div>
+          <div id="home-username" class="profile-username">@username</div>
+          <div id="home-user-id" class="profile-id">ID: #000000</div>
+        </div>
+      </div>
+
+      <div id="home-premium-badge" class="badge badge-premium hidden">⭐ PREMIUM ACTIVE</div>
+      <div id="home-free-badge" class="badge badge-free">🆓 FREE PLAN</div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">💎 Credits</div>
+          <div id="home-stat-credits" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">📊 Analyses</div>
+          <div id="home-stat-analyses" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">🏆 Win Rate</div>
+          <div id="home-stat-winrate" class="stat-value">0%</div>
+        </div>
+      </div>
+
+      <!-- Live Session Banner -->
+      <div class="session-banner">
+        <div class="session-dot"></div>
+        <div>
+          <span id="session-name" class="session-name">Loading Session...</span>
+          <span id="session-status" class="session-status">Active</span>
+        </div>
+      </div>
+
+      <div class="home-actions">
+        <button id="btn-home-analyze" class="btn btn-primary">📊 Analyze Market</button>
+        <button id="btn-home-topup" class="btn btn-secondary">💎 Top Up Credits</button>
+      </div>
+    </section>
+
+    <!-- ======== ANALYSIS SECTION ======== -->
+    <section id="section-analysis" class="section">
+
+      <!-- Category Pills -->
+      <div id="category-pills" class="pill-row">
+        <div class="pill active" data-cat="crypto">🪙 Crypto</div>
+        <div class="pill" data-cat="forex">💱 Forex</div>
+        <div class="pill" data-cat="metals">🥇 Metals</div>
+        <div class="pill" data-cat="stocks">📈 Stocks</div>
+      </div>
+
+      <!-- Search -->
+      <div class="search-box">
+        <input id="market-search" type="search" placeholder="🔍 Search symbol (BTC, GOLD, EUR/USD...)">
+        <div id="search-results" class="search-dropdown hidden"></div>
+      </div>
+
+      <!-- Quick Symbol Pills -->
+      <div id="symbol-pills" class="symbol-pills-wrap"></div>
+
+      <!-- Chart Source Selector -->
+      <div class="source-row">
+        <div class="source-badge-wrap">
+          <span id="chart-symbol-badge" class="badge-text">BTC/USDT</span>
+          <span id="chart-source-badge" class="badge-source">TRADINGVIEW</span>
+        </div>
+        <div class="source-pills">
+          <div class="pill active" data-src="tv">TV</div>
+          <div id="src-binance" class="pill disabled" data-src="binance">Binance</div>
+          <div id="src-oanda" class="pill disabled" data-src="oanda">OANDA</div>
+        </div>
+      </div>
+
+      <!-- Live Price Bar -->
+      <div class="price-bar">
+        <span id="live-price" class="live-price">--</span>
+        <span id="live-change" class="live-change">--%</span>
+        <button id="btn-fullscreen" class="btn-icon">⛶</button>
+      </div>
+
+      <!-- Timeframe Pills -->
+      <div class="tf-row">
+        <div class="pill" data-tf="1m">1m</div>
+        <div class="pill" data-tf="5m">5m</div>
+        <div class="pill active" data-tf="15m">15m</div>
+        <div class="pill" data-tf="30m">30m</div>
+        <div class="pill" data-tf="1h">1H</div>
+        <div class="pill" data-tf="4h">4H</div>
+        <div class="pill" data-tf="1d">1D</div>
+        <div class="pill" data-tf="1w">1W</div>
+      </div>
+
+      <!-- Chart Container -->
+      <div class="chart-container">
+        <div id="tv_chart_container" style="width:100%;height:400px;"></div>
+        <div id="lw_chart_container" class="hidden" style="width:100%;height:400px;"></div>
+      </div>
+
+      <!-- Analysis Loader -->
+      <div id="analysis-loader" class="analysis-loader">
+        <div class="loader-spinner-sm"></div>
+        <span id="analysis-step-text">Running analysis...</span>
+      </div>
+
+      <!-- Analyze Button -->
+      <button id="btn-analyze-action" class="btn btn-analyze">⚡ Analyze Now</button>
+    </section>
+
+    <!-- ======== TOP-UP SECTION ======== -->
+    <section id="section-topup" class="section">
+      <div class="section-title">💎 Top Up Credits</div>
+
+      <div class="topup-tabs">
+        <div class="tab-pill active" data-tab="premium">⭐ Premium</div>
+        <div class="tab-pill" data-tab="credits">💎 Credits</div>
+        <div class="tab-pill" data-tab="ads">📺 Watch Ads</div>
+      </div>
+
+      <!-- Premium Plans -->
+      <div id="tab-premium" class="tab-content active">
+        <div class="plan-card" data-pack="premium-weekly">
+          <div class="plan-name">⭐ 1 Week Premium</div>
+          <div class="plan-price">$5 USDT</div>
+          <div class="plan-desc">Unlimited analyses for 7 days</div>
+          <button class="btn btn-primary btn-sm">Buy Now</button>
+        </div>
+        <div class="plan-card" data-pack="premium-monthly">
+          <div class="plan-name">⭐ 1 Month Premium</div>
+          <div class="plan-price">$15 USDT</div>
+          <div class="plan-desc">Unlimited analyses for 30 days</div>
+          <button class="btn btn-primary btn-sm">Buy Now</button>
+        </div>
+      </div>
+
+      <!-- Credit Packs -->
+      <div id="tab-credits" class="tab-content hidden">
+        <div class="plan-card" data-pack="credits-500">
+          <div class="plan-name">💎 500 Credits</div>
+          <div class="plan-price">$3 USDT</div>
+          <div class="plan-desc">10 full analyses</div>
+          <button class="btn btn-primary btn-sm">Buy Now</button>
+        </div>
+        <div class="plan-card" data-pack="credits-1500">
+          <div class="plan-name">💎 1500 Credits</div>
+          <div class="plan-price">$7 USDT</div>
+          <div class="plan-desc">30 full analyses — Best Value!</div>
+          <button class="btn btn-primary btn-sm">Buy Now</button>
+        </div>
+      </div>
+
+      <!-- Watch Ads -->
+      <div id="tab-ads" class="tab-content hidden">
+        <div class="ads-card">
+          <div style="font-size:40px;">📺</div>
+          <h3>Watch & Earn</h3>
+          <p>Watch a 60-second ad to earn <b>+5 free credits</b>.<br>Daily limit: 10 ads = 50 credits/day FREE</p>
+          <button id="btn-watch-ad" class="btn btn-primary">▶ Watch Ad Now</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== HISTORY SECTION ======== -->
+    <section id="section-history" class="section">
+      <div class="section-title">📜 Transaction History</div>
+      <div id="history-container" class="history-list">
+        <div class="empty-state">Loading history...</div>
+      </div>
+    </section>
+
+    <!-- ======== SUPPORT SECTION ======== -->
+    <section id="section-support" class="section">
+      <div class="section-title">📋 Support</div>
+      <form id="support-form">
+        <div class="form-group">
+          <label>Your Name</label>
+          <input id="support-name" type="text" placeholder="Enter your name" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>Telegram Username</label>
+          <input id="support-username" type="text" placeholder="@username" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>Subject</label>
+          <input id="support-subject" type="text" placeholder="Issue subject" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="support-desc" rows="4" placeholder="Describe your issue..." class="form-input"></textarea>
+        </div>
+        <button id="btn-submit-support" type="submit" class="btn btn-primary" style="width:100%">📨 Submit Ticket</button>
+      </form>
+      <div id="support-success" class="hidden success-banner">
+        ✅ Your ticket has been submitted. We'll reply within 24 hours.
+      </div>
+    </section>
+
+    <!-- ======== TERMS SECTION ======== -->
+    <section id="section-terms" class="section">
+      <div class="section-title">📄 Terms & Conditions</div>
+      <div class="terms-body">
+        <h4>1. Educational Purpose Only</h4>
+        <p>All signals and analysis are for EDUCATIONAL use only. This is NOT financial advice.</p>
+        <h4>2. Trade at Your Own Risk</h4>
+        <p>All trading decisions are entirely your own responsibility. No one is forcing you to invest.</p>
+        <h4>3. No Refund Policy</h4>
+        <p>All credit purchases and premium activations are final and non-refundable.</p>
+        <h4>4. Accuracy Disclaimer</h4>
+        <p>The AI Trade Score is a mathematical signal. Past scores do NOT guarantee future results.</p>
+        <h4>5. Data Usage</h4>
+        <p>We only store your Telegram ID, username, and transaction history to operate this service.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <div class="nav-item active" data-target="home">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">Home</span>
+    </div>
+    <div class="nav-item" data-target="analysis">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">Analyze</span>
+    </div>
+    <div class="nav-item" data-target="topup">
+      <span class="nav-icon">💎</span>
+      <span class="nav-label">TopUp</span>
+    </div>
+    <div class="nav-item" id="btn-more">
+      <span class="nav-icon">☰</span>
+      <span class="nav-label">More</span>
+    </div>
+  </nav>
+
+</div><!-- end #app-wrapper -->
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
