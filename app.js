@@ -42,28 +42,53 @@ try {
     if (tg.expand) tg.expand();
     if (tg.enableClosingConfirmation) tg.enableClosingConfirmation();
     if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+    if (tg.colorScheme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    if (tg.onEvent) tg.onEvent('themeChanged', () => {
+        document.documentElement.setAttribute('data-theme', tg.colorScheme);
+    });
+} catch (e) { console.warn('Telegram init error', e); }
 
-    if (tg.colorScheme === 'light') {
-        document.documentElement.setAttribute('data-theme', 'light');
-    }
-    if (tg.onEvent) {
-        tg.onEvent('themeChanged', () => {
-            document.documentElement.setAttribute('data-theme', tg.colorScheme);
-        });
-    }
-} catch (e) {
-    console.warn("Telegram WebApp not found or failed to initialize", e);
+// ─── Loading Progress Controller ───
+function setProgress(pct, statusText) {
+    const fill = document.getElementById('progress-bar-fill');
+    const glow = document.getElementById('progress-bar-glow');
+    const pctEl = document.getElementById('progress-pct');
+    const statusEl = document.getElementById('loader-status');
+    if (fill) fill.style.width = pct + '%';
+    if (glow) glow.style.left = pct + '%';
+    if (pctEl) pctEl.innerText = Math.round(pct) + '%';
+    if (statusEl && statusText) statusEl.innerText = statusText;
+}
+
+function animateProgressTo(target, duration, statusText) {
+    return new Promise(resolve => {
+        const fill = document.getElementById('progress-bar-fill');
+        const current = fill ? parseFloat(fill.style.width) || 0 : 0;
+        const start = performance.now();
+        function step(now) {
+            const elapsed = now - start;
+            const t = Math.min(elapsed / duration, 1);
+            const val = current + (target - current) * (1 - Math.pow(1 - t, 3));
+            setProgress(val, elapsed < 100 ? statusText : null);
+            if (t < 1) requestAnimationFrame(step);
+            else { setProgress(target, statusText); resolve(); }
+        }
+        if (statusText) setProgress(current, statusText);
+        requestAnimationFrame(step);
+    });
 }
 
 async function init() {
     try {
+        // ── Step 1: Identity check
+        await animateProgressTo(10, 400, '🔐 Checking identity...');
+
         const user = tg.initDataUnsafe?.user;
-        
-        // For local testing bypass (optional: remove in production)
         const mockUser = { id: 123456789, username: "arghamatrix", first_name: "Argha", last_name: "Matrix" };
         const activeUser = user || mockUser;
 
-        if (!user && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+        if (!user && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            await animateProgressTo(100, 600, '⛔ Not in Telegram');
             const loadingScreen = document.getElementById('loading-screen');
             if (loadingScreen) loadingScreen.classList.add('hidden');
             const blockScreen = document.getElementById('telegram-block-screen');
@@ -71,47 +96,70 @@ async function init() {
             return;
         }
 
+        await animateProgressTo(25, 500, '📡 Connecting to Firebase...');
+
         const telegramUser = {
             id: activeUser.id,
-            username: activeUser.username || "NoUsername",
+            username: activeUser.username || 'NoUsername',
             first_name: activeUser.first_name,
-            last_name: activeUser.last_name || "",
+            last_name: activeUser.last_name || '',
             photo_url: activeUser.photo_url || null
         };
 
-        // Firebase with 10s timeout guard
+        // ── Step 2: Firebase auth with progress
         await Promise.race([
             autoLoginOrRegister(telegramUser),
             new Promise((_, rej) => setTimeout(() => rej(new Error('Firebase timeout')), 10000))
-        ]).catch(e => {
+        ]).catch(async e => {
             console.warn('Auth fallback:', e.message);
             if (!window.currentUser) {
                 window.currentUser = {
                     ...telegramUser,
-                    credits: 200, premium_active: false, premium_expires: null,
-                    total_analyses: 0
+                    credits: 200, premium_active: false, premium_expires: null, total_analyses: 0
                 };
             }
         });
 
-        const loadingScreen = document.getElementById('loading-screen');
-        if (loadingScreen) loadingScreen.classList.add('hidden');
-        const appWrapper = document.getElementById('app-wrapper');
-        if (appWrapper) appWrapper.classList.remove('hidden');
+        await animateProgressTo(55, 600, '✅ Account loaded...');
 
-        try { initRouter(); } catch(e) { console.error('initRouter error:', e); }
-        try { renderHome(); } catch(e) { console.error('renderHome error:', e); }
-        try { initAnalysis(); } catch(e) { console.error('initAnalysis error:', e); }
-        try { initTopup(); } catch(e) { console.error('initTopup error:', e); }
-        try { initSupport(); } catch(e) { console.error('initSupport error:', e); }
+        // ── Step 3: Init modules
+        try { initRouter(); } catch(e) { console.error(e); }
+        await animateProgressTo(70, 400, '🧠 Loading analysis engine...');
 
-        setTimeout(() => {
-            try { fetchBinanceSymbols(); } catch(e) { console.error('fetchBinanceSymbols error:', e); }
-            try { startMarketTicker(); } catch(e) { console.error('startMarketTicker error:', e); }
-        }, 800);
+        try { renderHome(); } catch(e) { console.error(e); }
+        try { initAnalysis(); } catch(e) { console.error(e); }
+        await animateProgressTo(85, 400, '📊 Preparing market data...');
+
+        try { initTopup(); } catch(e) { console.error(e); }
+        try { initSupport(); } catch(e) { console.error(e); }
+        await animateProgressTo(98, 500, '⚡ Almost ready...');
+
+        // ── Step 4: Hit 100% and show Enter Matrix button
+        await animateProgressTo(100, 300, '✅ System ready!');
+
+        const enterBtn = document.getElementById('enter-matrix-btn');
+        if (enterBtn) enterBtn.classList.remove('hidden');
+
+        // Store launch function so button can trigger it
+        window._enterMatrix = () => {
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.style.opacity = '0';
+                loadingScreen.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => loadingScreen.classList.add('hidden'), 500);
+            }
+            const appWrapper = document.getElementById('app-wrapper');
+            if (appWrapper) appWrapper.classList.remove('hidden');
+            setTimeout(() => {
+                try { fetchBinanceSymbols(); } catch(e) {}
+                try { startMarketTicker(); } catch(e) {}
+            }, 800);
+        };
 
     } catch (err) {
         console.error('init() failed:', err);
+        // Failsafe: jump straight to app
+        await animateProgressTo(100, 200, '⚡ Launching...');
         const loadingScreen = document.getElementById('loading-screen');
         if (loadingScreen) loadingScreen.classList.add('hidden');
         const appWrapper = document.getElementById('app-wrapper');
