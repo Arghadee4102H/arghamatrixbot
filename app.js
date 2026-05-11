@@ -158,13 +158,17 @@ async function init() {
 
     } catch (err) {
         console.error('init() failed:', err);
-        // Failsafe: jump straight to app
-        await animateProgressTo(100, 200, '⚡ Launching...');
-        const loadingScreen = document.getElementById('loading-screen');
-        if (loadingScreen) loadingScreen.classList.add('hidden');
-        const appWrapper = document.getElementById('app-wrapper');
-        if (appWrapper) appWrapper.classList.remove('hidden');
-        try { initRouter(); renderHome(); initAnalysis(); initTopup(); initSupport(); } catch(e) {}
+        // Display error visibly on screen
+        setProgress(100, '❌ Error: ' + err.message);
+        
+        // Failsafe: jump straight to app after 3s
+        setTimeout(() => {
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) loadingScreen.classList.add('hidden');
+            const appWrapper = document.getElementById('app-wrapper');
+            if (appWrapper) appWrapper.classList.remove('hidden');
+            try { initRouter(); renderHome(); initAnalysis(); initTopup(); initSupport(); } catch(e) {}
+        }, 3000);
     }
 }
 
