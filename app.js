@@ -116,22 +116,22 @@ async function init() {
             }
         });
 
-        await animateProgressTo(55, 600, 'âœ… Account loaded...');
+        await animateProgressTo(55, 600, '✅ Account loaded...');
 
         // â”€â”€ Step 3: Init modules
         try { initRouter(); } catch(e) { console.error(e); }
-        await animateProgressTo(70, 400, 'ðŸ§  Loading analysis engine...');
+        await animateProgressTo(70, 400, '🧠 Loading analysis engine...');
 
         try { renderHome(); } catch(e) { console.error(e); }
         try { initAnalysis(); } catch(e) { console.error(e); }
-        await animateProgressTo(85, 400, 'ðŸ“Š Preparing market data...');
+        await animateProgressTo(85, 400, '📊 Preparing market data...');
 
         try { initTopup(); } catch(e) { console.error(e); }
         try { initSupport(); } catch(e) { console.error(e); }
-        await animateProgressTo(98, 500, 'âš¡ Almost ready...');
+        await animateProgressTo(98, 500, '⚡ Almost ready...');
 
         // â”€â”€ Step 4: Hit 100% and show Enter Matrix button
-        await animateProgressTo(100, 300, 'âœ… System ready!');
+        await animateProgressTo(100, 300, '✅ System ready!');
 
         const enterBtn = document.getElementById('enter-matrix-btn');
         if (enterBtn) enterBtn.classList.remove('hidden');
@@ -870,8 +870,8 @@ function detectLiquidity(candles) {
 function getKillZone() {
     const h = new Date().getUTCHours();
     if (h >= 2 && h < 5) return { active: true, name: 'Asian Session' };
-    if (h >= 7 && h < 10) return { active: true, name: 'London Open KZ âš¡' };
-    if (h >= 12 && h < 15) return { active: true, name: 'NY Open KZ âš¡' };
+    if (h >= 7 && h < 10) return { active: true, name: 'London Open KZ ⚡' };
+    if (h >= 12 && h < 15) return { active: true, name: 'NY Open KZ ⚡' };
     if (h >= 19 && h < 21) return { active: true, name: 'Silver Bullet Window' };
     return { active: false, name: 'Off-Session' };
 }
@@ -925,7 +925,7 @@ async function fetchCandlesForAnalysis() {
 async function runAnalysis() {
     const user = window.currentUser;
     if (user.credits < 50 && !user.premium_active) {
-        showToast("âŒ Insufficient credits. Top up to continue.", "error");
+        showToast("❌ Insufficient credits. Top up to continue.", "error");
         navigateTo('topup');
         return;
     }
@@ -935,11 +935,11 @@ async function runAnalysis() {
     loader.classList.add('active');
     
     const steps = [
-        "ðŸ“¡ Fetching live OHLCV candles...",
-        "ðŸ“Š Calculating RSI Â· MACD Â· EMA 20/50/200...",
-        "ðŸ—ï¸ Mapping BOS Â· MSS Â· Market Structure...",
-        "ðŸŽ¯ Detecting FVG Â· Order Block Â· Liquidity...",
-        "âš¡ ICT Kill Zone Â· Fibonacci OTE Â· Signal..."
+        "⏳ Fetching live OHLCV candles...",
+        "🧮 Calculating RSI · MACD · EMA 20/50/200...",
+        "📐 Mapping BOS · MSS · Market Structure...",
+        "🕵️‍♂️ Detecting FVG · Order Block · Liquidity...",
+        "🎯 ICT Kill Zone · Fibonacci OTE · Signal..."
     ];
     
     for (let i = 0; i < steps.length; i++) {
@@ -1098,15 +1098,15 @@ function renderAnalysisResult(res) {
     
     const badge = document.getElementById('res-direction-badge');
     if (res.direction === "BUY") {
-        badge.innerText = "ðŸŸ¢ BUY SIGNAL";
+        badge.innerText = "🟢 BUY SIGNAL";
         badge.className = "pill pill-green mt-2";
         gauge.style.stroke = "var(--accent-green)";
     } else if (res.direction === "SELL") {
-        badge.innerText = "ðŸ”´ SELL SIGNAL";
+        badge.innerText = "🔴 SELL SIGNAL";
         badge.className = "pill pill-red mt-2";
         gauge.style.stroke = "var(--accent-red)";
     } else {
-        badge.innerText = "âšª NEUTRAL";
+        badge.innerText = "⚪ NEUTRAL";
         badge.className = "pill mt-2";
         gauge.style.stroke = "var(--text-muted)";
     }
@@ -1133,24 +1133,24 @@ function renderAnalysisResult(res) {
     const msIcon = res.ms.structure === 'BULLISH' ? '🟢' : res.ms.structure === 'BEARISH' ? '🔴' : '⚪';
     document.getElementById('res-smc-details').innerHTML = `
         ${msIcon} <b>Market Structure:</b> ${res.ms.structure}<br>
-        ${res.ob.present ? `âœ… Order Block: <b>${res.ob.type}</b> OB active` : 'âŒ No Order Block nearby'}<br>
-        ${res.liq.buyside ? `âš¡ Buy-Side Liq: $${res.liq.buyside.toFixed(fix)}` : ''} ${res.liq.sellside ? `âš¡ Sell-Side Liq: $${res.liq.sellside.toFixed(fix)}` : ''}<br>
-        ${res.liq.swept ? 'ðŸŽ¯ Liquidity Swept â€” reversal likely' : 'ðŸ”„ Liquidity intact'}<br>
-        ðŸ• <b>Kill Zone:</b> ${res.kz.name} ${res.kz.active ? 'âœ… Active' : ''}<br>
+        ${res.ob.present ? `✅ Order Block: <b>${res.ob.type}</b> OB active` : 'âŒ No Order Block nearby'}<br>
+        ${res.liq.buyside ? `⚡ Buy-Side Liq: $${res.liq.buyside.toFixed(fix)}` : ''} ${res.liq.sellside ? `⚡ Sell-Side Liq: $${res.liq.sellside.toFixed(fix)}` : ''}<br>
+        ${res.liq.swept ? '🎯 Liquidity Swept â€” reversal likely' : '🔄 Liquidity intact'}<br>
+        ðŸ• <b>Kill Zone:</b> ${res.kz.name} ${res.kz.active ? '✅ Active' : ''}<br>
         ðŸ“ <b>Zone:</b> ${res.zone}<br>
-        ${res.inOTE ? 'ðŸŽ¯ Price in Fibonacci OTE (62-79%)' : 'ðŸ“ Outside OTE zone'}<br>
+        ${res.inOTE ? '🎯 Price in Fibonacci OTE (62-79%)' : 'ðŸ“ Outside OTE zone'}<br>
         ðŸ•¯ï¸ <b>Pattern:</b> ${res.pattern}
     `;
     // Indicator details
-    const rsiZone = res.rsi < 30 ? 'Oversold ðŸŸ¢' : res.rsi > 70 ? 'Overbought ðŸ”´' : res.rsi > 50 ? 'Bullish zone' : 'Bearish zone';
-    const macdStr = res.macd > 0 ? 'ðŸŸ¢ Bullish Crossover' : 'ðŸ”´ Bearish Crossover';
-    const emaStack = res.ema20 > res.ema50 ? 'ðŸŸ¢ Bullish (EMA20 > EMA50)' : 'ðŸ”´ Bearish (EMA20 < EMA50)';
+    const rsiZone = res.rsi < 30 ? 'Oversold 🟢' : res.rsi > 70 ? 'Overbought 🔴' : res.rsi > 50 ? 'Bullish zone' : 'Bearish zone';
+    const macdStr = res.macd > 0 ? '🟢 Bullish Crossover' : '🔴 Bearish Crossover';
+    const emaStack = res.ema20 > res.ema50 ? '🟢 Bullish (EMA20 > EMA50)' : '🔴 Bearish (EMA20 < EMA50)';
     document.getElementById('res-ind-details').innerHTML = `
-        ðŸ“Š <b>RSI (14):</b> ${res.rsi.toFixed(1)} â€” ${rsiZone}<br>
-        ðŸ“ˆ <b>MACD:</b> ${macdStr}<br>
-        ã€°ï¸ <b>EMA 20:</b> $${res.ema20.toFixed(fix)} | <b>EMA 50:</b> $${res.ema50.toFixed(fix)}<br>
-        ðŸ“ <b>ATR:</b> $${res.atr.toFixed(fix)} (volatility)<br>
-        ðŸ”¼ <b>Swing High:</b> $${res.swingHigh.toFixed(fix)} | ðŸ”½ <b>Swing Low:</b> $${res.swingLow.toFixed(fix)}
+        📊 <b>RSI (14):</b> ${res.rsi.toFixed(1)} — ${rsiZone}<br>
+        📈 <b>MACD:</b> ${macdStr}<br>
+        〰️ <b>EMA 20:</b> ${res.ema20.toFixed(fix)} | <b>EMA 50:</b> ${res.ema50.toFixed(fix)}<br>
+        📉 <b>ATR:</b> ${res.atr.toFixed(fix)} (volatility)<br>
+        🔼 <b>Swing High:</b> ${res.swingHigh.toFixed(fix)} | 🔽 <b>Swing Low:</b> ${res.swingLow.toFixed(fix)}
     `;
 
     document.getElementById('analysis-result-backdrop').classList.add('open');
@@ -1173,18 +1173,18 @@ window.shareAnalysis = () => {
     const tp2 = "$" + res.tp2.toFixed(fix);
     const sl = "$" + res.sl.toFixed(fix);
     
-    const text = `ðŸ§  *Argha Matrix Signal*\n\n` +
-                 `ðŸ“ˆ *Pair:* ${res.symbol}\n` +
-                 `âš¡ *Direction:* ${res.direction}\n` +
-                 `ðŸŽ¯ *Entry:* ${entry}\n` +
-                 `âœ… *TP 1:* ${tp1}\n` +
-                 `ðŸš€ *TP 2:* ${tp2}\n` +
-                 `ðŸ›‘ *SL:* ${sl}\n\n` +
-                 `ðŸ”Ž *Reasoning:*\n` +
-                 `Fair Value Gap: âœ… Present\n` +
-                 `Order Block: âœ… Detected\n` +
-                 `Break of Structure: âœ… Confirmed on ${res.timeframe}\n\n` +
-                 `ðŸ¤– @ArghaMatrix_bot`;
+    const text = `🧠 *Argha Matrix Signal*\n\n` +
+                 `📈 *Pair:* ${res.symbol}\n` +
+                 `⚡ *Direction:* ${res.direction}\n` +
+                 `🎯 *Entry:* ${entry}\n` +
+                 `✅ *TP 1:* ${tp1}\n` +
+                 `🚀 *TP 2:* ${tp2}\n` +
+                 `🛑 *SL:* ${sl}\n\n` +
+                 `🔍 *Reasoning:*\n` +
+                 `Fair Value Gap: ${res.fvg.present ? '✅ Present' : '❌ None'}\n` +
+                 `Order Block: ${res.ob.present ? '✅ Detected' : '❌ None'}\n` +
+                 `Break of Structure: ${res.ms.bos ? '✅ Confirmed' : '❌ Not Confirmed'} on ${res.timeframe}\n\n` +
+                 `🤖 @ArghaMatrix_bot`;
                  
     const url = `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`;
     window.Telegram.WebApp.openTelegramLink(url);
@@ -1263,7 +1263,7 @@ function showPaymentModal(itemData, type) {
             });
             
             document.getElementById('payment-modal').classList.remove('open');
-            showToast("âœ… Payment submitted! Awaiting admin verification (up to 30 mins).");
+            showToast("✅ Payment submitted! Awaiting admin verification (up to 30 mins).");
         } catch (e) {
             showToast("âŒ Failed to submit payment. Try again.", "error");
         }
@@ -1336,17 +1336,17 @@ async function loadHistory(tab) {
         let html = "";
         filtered.slice(0, 20).forEach(d => {
             const date = new Date(d.timestamp).toLocaleString();
-            let icon = "ðŸ“", title = "Transaction", color = "var(--text-primary)";
+            let icon = "💰", title = "Transaction", color = "var(--text-primary)";
             let rightSide = `<div class="font-bold" style="color:${d.amount > 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">${d.amount > 0 ? '+' : ''}${d.amount} cr</div>`;
             
-            if (d.type === 'analysis') { icon = "ðŸ“Š"; title = "Market Analysis: " + d.symbol; color = "var(--text-muted)"; }
-            else if (d.type === 'ad_reward') { icon = "ðŸ“º"; title = "Ad Reward"; color = "var(--accent-green)"; }
+            if (d.type === 'analysis') { icon = "📊"; title = "Market Analysis: " + d.symbol; color = "var(--text-muted)"; }
+            else if (d.type === 'ad_reward') { icon = "🎁"; title = "Ad Reward"; color = "var(--accent-green)"; }
             else if (d.type.startsWith('pending_') || d.status) { 
                 if (d.status === 'success') {
-                    icon = "âœ…"; title = "Success: " + (d.item || "TopUp");
+                    icon = "✅"; title = "Success: " + (d.item || "TopUp");
                     rightSide = `<div class="pill pill-green" style="font-size:10px;">Success</div>`;
                 } else if (d.status === 'failed' || d.status === 'rejected') {
-                    icon = "âŒ"; title = "Failed: " + (d.item || "TopUp");
+                    icon = "❌"; title = "Failed: " + (d.item || "TopUp");
                     rightSide = `<div class="pill pill-red" style="font-size:10px;">Rejected</div>`;
                 } else {
                     icon = "â³"; title = "Pending: " + (d.item || "TopUp"); 
