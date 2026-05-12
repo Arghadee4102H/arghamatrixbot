@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0a0c14">
+    <title>Argha Matrix — Trading Analysis</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="app.js" defer></script>
+</head>
+<body data-theme="dark">
+
+  <!-- TOP HEADER BAR -->
+  <header id="top-header">
+    <div class="header-left">
+      <div class="logo">🧠 Argha Matrix</div>
+      <div class="subtitle">Personal Trading Analysis Terminal</div>
+    </div>
+    <div class="header-center" id="market-status-badges">
+      <span class="status-badge nyse">🟡 NYSE: CLOSED</span>
+      <span class="status-badge crypto">🟢 CRYPTO: 24/7</span>
+      <span class="status-badge forex">🟢 FOREX: OPEN</span>
+      <span class="status-badge lse">🔴 LSE: CLOSED</span>
+    </div>
+    <div class="header-right">
+      <div id="utc-clock">UTC --:--:--</div>
+      <button id="theme-toggle">☀️</button>
+      <div class="live-indicator"><span class="dot"></span> Live</div>
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <div id="app-container">
+
+    <!-- LEFT PANEL -->
+    <aside id="left-panel">
+      <div class="search-container">
+        <input type="text" id="symbol-search" placeholder="Search symbol... BTC, GOLD, EUR">
+      </div>
+      
+      <div class="category-tabs" id="category-tabs">
+        <button class="cat-tab active" data-cat="crypto">🪙 Crypto</button>
+        <button class="cat-tab" data-cat="forex">💱 Forex</button>
+        <button class="cat-tab" data-cat="metals">🥇 Metals</button>
+        <button class="cat-tab" data-cat="stocks">📈 Stocks</button>
+        <button class="cat-tab" data-cat="indices">📉 Indices</button>
+      </div>
+
+      <div class="symbol-list-container">
+        <div id="watchlist-section" style="display: none;">
+          <div class="section-title">📌 WATCHLIST</div>
+          <div id="watchlist-list" class="symbol-list"></div>
+        </div>
+        <div class="section-title" id="current-cat-title">🪙 CRYPTO MARKETS</div>
+        <div id="symbol-list" class="symbol-list">
+          <!-- Symbols populated here -->
+        </div>
+      </div>
+
+      <div class="scanner-panel">
+        <div class="section-title">🔍 MARKET SCANNER</div>
+        <button id="run-scanner-btn" class="action-btn">▶ Run Scanner</button>
+        <div class="scanner-filters">
+          <select id="scan-signal"><option>BUY signals</option><option>SELL signals</option><option>Both</option></select>
+          <select id="scan-score"><option>Min 85%</option><option>Min 75%</option><option>Min 65%</option></select>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER AREA -->
+    <main id="center-area">
+      <!-- Chart Controls Bar -->
+      <div id="chart-controls-bar">
+        <div class="controls-left">
+          <span id="active-symbol-display">BTC/USDT</span>
+          <span class="exchange-badge" id="active-exchange">BINANCE</span>
+          <span class="live-dot-text">● LIVE</span>
+        </div>
+        <div class="controls-center" id="source-selector">
+          <button class="source-btn" data-source="tv">📊 TradingView</button>
+          <button class="source-btn active" data-source="binance">🟡 Binance</button>
+          <button class="source-btn" data-source="oanda">🔵 OANDA</button>
+          <button class="source-btn" data-source="lightweight">📈 Lightweight</button>
+        </div>
+        <div class="controls-right">
+          <button id="fullscreen-btn" title="Fullscreen">⛶</button>
+        </div>
+      </div>
+
+      <div id="timeframe-selector" class="timeframe-bar">
+        <button data-tf="1m">1m</button>
+        <button data-tf="5m">5m</button>
+        <button data-tf="15m">15m</button>
+        <button data-tf="30m">30m</button>
+        <button data-tf="1h" class="active">1H</button>
+        <button data-tf="4h">4H</button>
+        <button data-tf="1d">1D</button>
+        <button data-tf="1w">1W</button>
+      </div>
+
+      <!-- Chart Widget Container -->
+      <div id="chart-wrapper">
+        <div id="tv_chart_container" class="chart-container-inner" style="display: none;"></div>
+        <div id="lw_chart_container" class="chart-container-inner"></div>
+        <div id="chart-overlay-toolbar" style="display: none;">
+          <button class="overlay-btn active" data-overlay="ema">EMA</button>
+          <button class="overlay-btn" data-overlay="bb">BB</button>
+          <button class="overlay-btn" data-overlay="vwap">VWAP</button>
+          <button class="overlay-btn" data-overlay="ob">OB</button>
+          <button class="overlay-btn" data-overlay="fvg">FVG</button>
+          <button class="overlay-btn" data-overlay="liquidity">LIQ</button>
+        </div>
+      </div>
+
+      <!-- Live Market Data Strip -->
+      <div id="market-data-strip">
+        <div class="data-cell"><div class="label">LIVE</div><div class="val text-accent">●</div></div>
+        <div class="data-cell"><div class="label">PRICE</div><div class="val price" id="strip-price">--</div></div>
+        <div class="data-cell"><div class="label">24H CHG</div><div class="val price" id="strip-change">--</div></div>
+        <div class="data-cell"><div class="label">24H HIGH</div><div class="val price" id="strip-high">--</div></div>
+        <div class="data-cell"><div class="label">24H LOW</div><div class="val price" id="strip-low">--</div></div>
+        <div class="data-cell"><div class="label">VOLUME</div><div class="val num" id="strip-vol">--</div></div>
+        <div class="data-cell"><div class="label">MKT CAP/INFO</div><div class="val num" id="strip-info">--</div></div>
+      </div>
+
+      <!-- Analyze Button Area -->
+      <div id="analyze-section">
+        <button id="analyze-btn">
+          🧠 RUN FULL ANALYSIS <br><small><span id="analyze-btn-sym">BTC/USDT</span> | <span id="analyze-btn-tf">1H</span></small>
+        </button>
+        <div id="quick-analysis-btns">
+          <button>⚡ Quick Score</button>
+          <button>🏗️ SMC Only</button>
+          <button>🎯 ICT Only</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <aside id="right-panel">
+      <div class="panel-header">
+        <h3>🧠 ANALYSIS RESULTS</h3>
+        <div class="panel-header-details" id="results-header-info">--</div>
+      </div>
+      
+      <div id="analysis-results-content" style="display:none;">
+        <!-- BLOCK 1: Gauge -->
+        <div class="result-block center-align">
+          <div class="gauge-container">
+            <svg viewBox="0 0 100 50" class="score-gauge-svg">
+              <path class="score-gauge-bg" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke-width="10" stroke-linecap="round"/>
+              <path class="score-gauge-fill" id="score-arc" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke-width="10" stroke-dasharray="125.6" stroke-dashoffset="125.6"/>
+            </svg>
+            <div class="score-gauge-center">
+              <div class="score-number" id="main-score-val">0</div>
+              <div class="score-percent">%</div>
+            </div>
+          </div>
+          <div id="main-signal-badge" class="signal-badge signal-neutral">⚪ ANALYZING...</div>
+        </div>
+
+        <!-- BLOCK 2: Setup -->
+        <div class="result-block setup-card">
+          <h4>📈 TRADE SETUP</h4>
+          <div class="setup-row"><strong>Direction:</strong> <span id="setup-dir">--</span></div>
+          <div class="setup-row mt-sm"><strong>📍 Entry Zone:</strong> <div class="setup-entry" id="setup-entry">--</div></div>
+          <hr>
+          <div class="setup-row"><strong>🎯 TP 1:</strong> <span class="setup-tp1" id="setup-tp1">--</span></div>
+          <div class="setup-row"><strong>🎯 TP 2:</strong> <span class="setup-tp2" id="setup-tp2">--</span></div>
+          <div class="setup-row"><strong>🎯 TP 3:</strong> <span class="setup-tp3" id="setup-tp3">--</span></div>
+          <hr>
+          <div class="setup-row"><strong>🛑 Stop Loss:</strong> <span class="setup-sl" id="setup-sl">--</span></div>
+        </div>
+
+        <!-- Dynamic Results Container -->
+        <div id="dynamic-results-blocks"></div>
+      </div>
+      
+      <div id="analysis-placeholder">
+        <div class="placeholder-text">Click "Run Full Analysis" to generate insights.</div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- BOTTOM STATUS BAR -->
+  <footer id="status-bar">
+    <div class="status-left" id="bottom-sessions">
+      <span>🟢 London: OPEN</span> | <span>🟡 NY: Opens 13:30 UTC</span>
+    </div>
+    <div class="status-center">● LIVE DATA CONNECTED</div>
+    <div class="status-right">v3.0 — Argha Matrix</div>
+  </footer>
+
+  <!-- MODALS & OVERLAYS -->
+  <div id="analysis-loading-overlay" style="display: none;">
+    <div class="loading-brain">🧠</div>
+    <div class="loading-step" id="loading-step-text">Initializing Analysis Engine...</div>
+    
+    <!-- Percentage and Progress Bar -->
+    <div class="loading-percentage" id="loading-percentage-text">0%</div>
+    <div class="loading-progress-bar">
+      <div class="loading-progress-fill" id="loading-progress-fill" style="width: 0%;"></div>
+    </div>
+    
+    <!-- Enter Matrix Button -->
+    <button id="enter-matrix-btn" style="display: none;" class="enter-matrix-btn">ENTER MATRIX</button>
+  </div>
+  
+  <div id="scanner-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🔍 Market Scanner Results</h2>
+        <button class="close-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="scanner-progress" style="display:none;">Scanning markets...</div>
+        <table class="scanner-table" id="scanner-table" style="display:none;">
+          <thead>
+            <tr><th>Symbol</th><th>Score</th><th>Signal</th><th>Entry</th><th>TP1</th><th>SL</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+</body>
+</html>
