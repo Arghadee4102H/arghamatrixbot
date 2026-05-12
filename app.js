@@ -1,4 +1,4 @@
-﻿/*================================================
+/*================================================
   ARGHA MATRIX â€” app.js
   Version: 2.0
 ================================================*/
@@ -246,7 +246,7 @@ function initRouter() {
         });
     });
 
-    tg.BackButton.onClick(() => navigateTo('home'));
+    tg.BackButton?.onClick?.(() => navigateTo('home'));
 }
 
 function navigateTo(sectionId) {
@@ -257,8 +257,8 @@ function navigateTo(sectionId) {
     const navItem = document.querySelector(`.nav-item[data-target="${sectionId}"]`);
     if(navItem) navItem.classList.add('active');
 
-    if (sectionId === 'home') tg.BackButton.hide();
-    else tg.BackButton.show();
+    if (sectionId === 'home') tg.BackButton?.hide?.();
+    else tg.BackButton?.show?.();
 
     if (sectionId === 'history') initHistory();
     if (sectionId === 'analysis') {
